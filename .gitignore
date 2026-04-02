@@ -1,5 +1,4 @@
 ### AL ###
-#Template for AL projects for Dynamics 365 Business Central
 #launch.json folder
 .vscode/
 #Cache folder
@@ -20,3 +19,19 @@ rad.json
 *.flf
 #Test results file
 TestResults.xml
+
+# v0 runtime files (should only exist in preview, not in git)
+__v0_runtime_loader.js
+__v0_devtools.tsx
+__v0_jsx-dev-runtime.ts
+
+# ignores
+node_modules/
+.next/
+.env
+.env.local
+dist/
+build/
+.DS_Store
+Working/.next/
+Working/node_modules/
