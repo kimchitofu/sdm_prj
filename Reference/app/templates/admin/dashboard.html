@@ -1,0 +1,122 @@
+{% extends 'base.html' %}
+{% block title %}Admin Dashboard - FundBridge{% endblock %}
+{% block content %}
+<div class="container py-4">
+    <h2><i class="bi bi-speedometer2 me-2"></i>Admin Dashboard</h2>
+    <hr>
+
+    <!-- Stats Cards -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title">Total Users</h6>
+                            <h2>{{ stats.total }}</h2>
+                        </div>
+                        <i class="bi bi-people display-4 opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title">Fundraisers</h6>
+                            <h2>{{ stats.fundraisers }}</h2>
+                        </div>
+                        <i class="bi bi-megaphone display-4 opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title">Donees</h6>
+                            <h2>{{ stats.donees }}</h2>
+                        </div>
+                        <i class="bi bi-heart display-4 opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title">Suspended</h6>
+                            <h2>{{ stats.suspended }}</h2>
+                        </div>
+                        <i class="bi bi-exclamation-triangle display-4 opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Recent Users</h5>
+                    <a href="{{ url_for('admin.user_list') }}" class="btn btn-sm btn-outline-primary">View All</a>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Role</th>
+                                    <th>Joined</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for user in recent_users %}
+                                <tr>
+                                    <td><a href="{{ url_for('admin.user_detail', id=user.id) }}">{{ user.full_name }}</a></td>
+                                    <td>{{ user.email }}</td>
+                                    <td><span class="badge bg-secondary">{{ user.role|title }}</span></td>
+                                    <td>{{ user.created_at|timeago }}</td>
+                                    <td>
+                                        {% if user.is_suspended %}
+                                            <span class="badge bg-danger">Suspended</span>
+                                        {% else %}
+                                            <span class="badge bg-success">Active</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-body text-center">
+                    <h5>Quick Actions</h5>
+                    <div class="d-grid gap-2 mt-3">
+                        <a href="{{ url_for('admin.user_create') }}" class="btn btn-primary">
+                            <i class="bi bi-person-plus me-1"></i>Create User
+                        </a>
+                        <a href="{{ url_for('admin.user_list') }}" class="btn btn-outline-primary">
+                            <i class="bi bi-people me-1"></i>Manage Users
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

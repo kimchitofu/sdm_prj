@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% block title %}Donation History - FundBridge{% endblock %}
+{% block content %}
+<div class="container py-4">
+    <h2><i class="bi bi-clock-history me-2"></i>Donation History</h2>
+    <hr>
+
+    <!-- Filters -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label small fw-bold">Category</label>
+                    <select class="form-select" name="category_id">
+                        <option value="">All Categories</option>
+                        {% for cat in categories %}
+                            <option value="{{ cat.id }}" {% if category_id|string == cat.id|string %}selected{% endif %}>{{ cat.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold">From Date</label>
+                    <input type="date" class="form-control" name="date_from" value="{{ date_from }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold">To Date</label>
+                    <input type="date" class="form-control" name="date_to" value="{{ date_to }}">
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">Filter</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if donations.items %}
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Campaign</th>
+                            <th>Category</th>
+                            <th>Amount</th>
+                            <th>Message</th>
+                            <th>Date</th>
+                            <th>Campaign Progress</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for d in donations.items %}
+                        <tr>
+                            <td><a href="{{ url_for('donee.fsa_detail', id=d.fsa_id) }}">{{ d.fsa.title }}</a></td>
+                            <td><span class="badge bg-secondary">{{ d.fsa.category.name }}</span></td>
+                            <td class="text-success fw-bold">{{ d.amount|currency }}</td>
+                            <td>{{ d.message[:50] if d.message else '-' }}{% if d.message and d.message|length > 50 %}...{% endif %}</td>
+                            <td>{{ d.created_at|dateformat }}</td>
+                            <td>
+                                <div class="progress" style="height: 6px; min-width: 80px;">
+                                    <div class="progress-bar bg-success" style="width: {{ d.fsa.progress_percentage }}%"></div>
+                                </div>
+                                <small class="text-muted">{{ d.fsa.progress_percentage }}%</small>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% set pagination = donations %}
+    {% include 'components/_pagination.html' %}
+    {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-inbox display-1 text-muted"></i>
+            <h4 class="text-muted mt-3">No donations found</h4>
+            <a href="{{ url_for('donee.search') }}" class="btn btn-primary mt-2">Find a Campaign</a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

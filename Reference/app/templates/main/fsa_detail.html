@@ -1,0 +1,118 @@
+{% extends 'base.html' %}
+{% block title %}{{ fsa.title }} - FundBridge{% endblock %}
+{% block content %}
+<div class="container py-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('main.home') }}">Home</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('main.browse') }}">Browse</a></li>
+            <li class="breadcrumb-item active">{{ fsa.title }}</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <!-- Main Content -->
+        <div class="col-md-7">
+            <img src="{{ url_for('static', filename=fsa.primary_image) }}" class="img-fluid rounded shadow-sm mb-4"
+                 alt="{{ fsa.title }}" style="width: 100%; max-height: 400px; object-fit: cover;"
+                 onerror="this.src='https://placehold.co/700x400/e8f5e9/2e7d32?text=FundBridge'">
+
+            {% if fsa.images.count() > 1 %}
+            <div class="d-flex gap-2 mb-4 overflow-auto">
+                {% for img in fsa.images.all() %}
+                    <img src="{{ url_for('static', filename=img.filename) }}" class="rounded"
+                         style="width: 80px; height: 60px; object-fit: cover; cursor: pointer;"
+                         onerror="this.style.display='none'">
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <h2>{{ fsa.title }}</h2>
+            <p class="text-muted">
+                <span class="badge bg-primary">{{ fsa.category.name }}</span>
+                <span class="ms-2"><i class="bi bi-person"></i> by {{ fsa.fundraiser.full_name }}</span>
+                <span class="ms-2"><i class="bi bi-eye"></i> {{ fsa.view_count }} views</span>
+            </p>
+
+            <div class="card mb-4">
+                <div class="card-body">
+                    {{ fsa.description|safe }}
+                </div>
+            </div>
+
+            <!-- Recent Donations -->
+            <h4 class="mt-4">Recent Donations</h4>
+            {% if donations %}
+                <div class="list-group">
+                    {% for d in donations %}
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <strong>{% if d.is_anonymous %}Anonymous{% else %}{{ d.donee.full_name }}{% endif %}</strong>
+                                    {% if d.message %}<p class="mb-0 text-muted small">{{ d.message }}</p>{% endif %}
+                                </div>
+                                <div class="text-end">
+                                    <span class="fw-bold text-success">{{ d.amount|currency }}</span>
+                                    <br><small class="text-muted">{{ d.created_at|timeago }}</small>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-muted">No donations yet. Be the first to contribute!</p>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-md-5">
+            <div class="card shadow sticky-top" style="top: 80px;">
+                <div class="card-body">
+                    <div class="progress mb-3" style="height: 12px;">
+                        <div class="progress-bar bg-success" style="width: {{ fsa.progress_percentage }}%"></div>
+                    </div>
+                    <h3 class="text-success">{{ fsa.current_amount|currency }}</h3>
+                    <p class="text-muted">raised of {{ fsa.goal_amount|currency }} goal</p>
+                    <div class="d-flex gap-3 text-muted mb-3">
+                        <span><i class="bi bi-people"></i> {{ fsa.donor_count }} donors</span>
+                        <span><i class="bi bi-heart"></i> {{ fsa.shortlist_count }} saves</span>
+                        {% if fsa.days_remaining is not none %}
+                            <span><i class="bi bi-clock"></i> {{ fsa.days_remaining }} days left</span>
+                        {% endif %}
+                    </div>
+
+                    {% if current_user.is_authenticated and current_user.role == 'donee' %}
+                        <div class="d-grid gap-2">
+                            <a href="{{ url_for('donee.donate', id=fsa.id) }}" class="btn btn-success btn-lg">
+                                <i class="bi bi-heart-fill me-2"></i>Donate Now
+                            </a>
+                            <form method="POST" action="{{ url_for('donee.toggle_favourite', id=fsa.id) }}">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-outline-danger w-100">
+                                    <i class="bi bi-heart me-1"></i>Save to Favourites
+                                </button>
+                            </form>
+                        </div>
+                    {% elif not current_user.is_authenticated %}
+                        <div class="d-grid">
+                            <a href="{{ url_for('auth.login') }}" class="btn btn-success btn-lg">Login to Donate</a>
+                        </div>
+                    {% endif %}
+
+                    <hr>
+                    <h6>Campaign Details</h6>
+                    <ul class="list-unstyled small text-muted">
+                        <li><i class="bi bi-tag me-1"></i> {{ fsa.category.name }}</li>
+                        <li><i class="bi bi-person me-1"></i> {{ fsa.fundraiser.full_name }}</li>
+                        <li><i class="bi bi-calendar me-1"></i> Created {{ fsa.created_at|dateformat }}</li>
+                        {% if fsa.end_date %}
+                            <li><i class="bi bi-calendar-check me-1"></i> Ends {{ fsa.end_date|dateformat }}</li>
+                        {% endif %}
+                        <li><i class="bi bi-flag me-1"></i> Status: {{ fsa.status|title }}</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% block title %}Completed Campaigns - FundBridge{% endblock %}
+{% block content %}
+<div class="container py-4">
+    <h2><i class="bi bi-clock-history me-2"></i>Completed Campaigns</h2>
+    <hr>
+
+    <!-- Filters -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label small fw-bold">Category</label>
+                    <select class="form-select" name="category_id">
+                        <option value="">All Categories</option>
+                        {% for cat in categories %}
+                            <option value="{{ cat.id }}" {% if category_id|string == cat.id|string %}selected{% endif %}>{{ cat.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold">From Date</label>
+                    <input type="date" class="form-control" name="date_from" value="{{ date_from }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold">To Date</label>
+                    <input type="date" class="form-control" name="date_to" value="{{ date_to }}">
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">Filter</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if fsas.items %}
+        <div class="row g-4">
+            {% for fsa in fsas.items %}
+            <div class="col-md-4">
+                {% set detail_url = url_for('fundraiser.fsa_detail', id=fsa.id) %}
+                {% include 'components/_fsa_card.html' %}
+            </div>
+            {% endfor %}
+        </div>
+        {% set pagination = fsas %}
+        {% include 'components/_pagination.html' %}
+    {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-inbox display-1 text-muted"></i>
+            <h4 class="text-muted mt-3">No completed campaigns found</h4>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

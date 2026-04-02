@@ -1,0 +1,44 @@
+<div class="card shadow-sm">
+    <div class="card-body">
+        <h5 class="card-title mb-3"><i class="bi bi-funnel"></i> Filters</h5>
+        <form method="GET">
+            <div class="mb-3">
+                <label for="q" class="form-label small fw-bold">Search</label>
+                <input type="text" class="form-control" id="q" name="q" value="{{ query }}" placeholder="Search campaigns...">
+            </div>
+            <div class="mb-3">
+                <label for="category_id" class="form-label small fw-bold">Category</label>
+                <select class="form-select" id="category_id" name="category_id">
+                    <option value="">All Categories</option>
+                    {% for cat in filter_options.categories %}
+                        <option value="{{ cat.id }}" {% if category_id|string == cat.id|string %}selected{% endif %}>{{ cat.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label small fw-bold">Goal Amount Range</label>
+                <div class="row g-2">
+                    <div class="col-6">
+                        <input type="number" class="form-control" name="min_amount" value="{{ min_amount }}" placeholder="Min $">
+                    </div>
+                    <div class="col-6">
+                        <input type="number" class="form-control" name="max_amount" value="{{ max_amount }}" placeholder="Max $">
+                    </div>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label for="sort_by" class="form-label small fw-bold">Sort By</label>
+                <select class="form-select" id="sort_by" name="sort_by">
+                    <option value="created_at" {% if sort_by == 'created_at' %}selected{% endif %}>Newest</option>
+                    <option value="current_amount" {% if sort_by == 'current_amount' %}selected{% endif %}>Most Funded</option>
+                    <option value="goal_amount" {% if sort_by == 'goal_amount' %}selected{% endif %}>Goal Amount</option>
+                    <option value="view_count" {% if sort_by == 'view_count' %}selected{% endif %}>Most Viewed</option>
+                </select>
+            </div>
+            <div class="d-grid gap-2">
+                <button type="submit" class="btn btn-primary">Apply Filters</button>
+                <a href="{{ request.path }}" class="btn btn-outline-secondary btn-sm">Clear Filters</a>
+            </div>
+        </form>
+    </div>
+</div>
