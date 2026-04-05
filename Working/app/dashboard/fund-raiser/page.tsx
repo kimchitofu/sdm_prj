@@ -208,7 +208,7 @@ export default function FundRaiserDashboardPage() {
                   <div
                     className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
                       activity.type === "donation"
-                        ? "bg-emerald-500/10 text-emerald-600"
+                        ? "bg-azure-500/10 text-azure-600"
                         : activity.type === "favourite"
                           ? "bg-rose-500/10 text-rose-600"
                           : "bg-blue-500/10 text-blue-600"

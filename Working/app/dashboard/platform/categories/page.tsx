@@ -71,7 +71,7 @@ const platformUser = {
 }
 
 const colorOptions = [
-  { name: 'Emerald', value: '#10b981' },
+  { name: 'Azure Blue', value: '#B2C2DE' },
   { name: 'Blue', value: '#3b82f6' },
   { name: 'Purple', value: '#8b5cf6' },
   { name: 'Rose', value: '#f43f5e' },
@@ -85,7 +85,7 @@ export default function CategoriesPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [categoryList, setCategoryList] = useState(categories)
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
-  const [newCategory, setNewCategory] = useState({ name: '', description: '', color: '#10b981', icon: 'heart' })
+  const [newCategory, setNewCategory] = useState({ name: '', description: '', color: '#B2C2DE', icon: 'heart' })
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -115,7 +115,7 @@ export default function CategoriesPage() {
       createdAt: new Date().toISOString()
     }
     setCategoryList([...categoryList, newCat])
-    setNewCategory({ name: '', description: '', color: '#10b981', icon: 'heart' })
+    setNewCategory({ name: '', description: '', color: '#B2C2DE', icon: 'heart' })
     setShowCreateDialog(false)
   }
 

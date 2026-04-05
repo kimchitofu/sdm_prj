@@ -436,7 +436,7 @@ export default function LandingPage() {
                       {Array.from({ length: testimonial.rating }).map((_, i) => (
                         <Star
                           key={i}
-                          className="h-4 w-4 fill-yellow-400 text-yellow-400"
+                          className="h-4 w-4 fill-azure-400 text-azure-400"
                         />
                       ))}
                     </div>
