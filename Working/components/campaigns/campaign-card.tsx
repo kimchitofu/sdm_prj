@@ -77,14 +77,14 @@ export function CampaignCard({
           </p>
           <div className="mt-auto">
             <div className="mb-2 flex items-center justify-between text-sm">
-              <span className="font-semibold text-primary">
+              <span className="font-semibold text-green-600">
                 {formatCurrency(campaign.raisedAmount)}
               </span>
               <span className="text-muted-foreground">
                 of {formatCurrency(campaign.targetAmount)}
               </span>
             </div>
-            <Progress value={progress} className="h-2" />
+            <Progress value={progress} className="h-2 bg-green-100 [&>[data-slot=progress-indicator]]:bg-green-500" />
             <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
                 <Users className="h-3 w-3" />
@@ -119,7 +119,7 @@ export function CampaignCard({
             </h3>
           </Link>
           <div className="mt-2">
-            <Progress value={progress} className="h-1.5" />
+            <Progress value={progress} className="h-1.5 bg-green-100 [&>[data-slot=progress-indicator]]:bg-green-500" />
             <p className="mt-1 text-xs text-muted-foreground">
               {formatCurrency(campaign.raisedAmount)} raised
             </p>
@@ -219,10 +219,10 @@ export function CampaignCard({
 
         {/* Progress */}
         <div className="space-y-2">
-          <Progress value={progress} className="h-2" />
+          <Progress value={progress} className="h-2 bg-green-100 [&>[data-slot=progress-indicator]]:bg-green-500" />
           <div className="flex items-center justify-between">
             <div>
-              <span className="text-lg font-bold text-primary">
+              <span className="text-lg font-bold text-green-600">
                 {formatCurrency(campaign.raisedAmount)}
               </span>
               <span className="text-sm text-muted-foreground">

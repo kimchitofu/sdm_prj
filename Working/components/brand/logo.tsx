@@ -21,7 +21,7 @@ export function Logo({ className, showText = true, size = 'md' }: LogoProps) {
     <Link href="/" className={cn('flex items-center gap-2', className)}>
       <div className="relative">
         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary">
-          <Heart className="h-5 w-5 fill-primary-foreground text-primary-foreground" />
+          <Heart className="h-5 w-5 fill-red-500 text-red-500" />
         </div>
         <div className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-background bg-chart-4" />
       </div>

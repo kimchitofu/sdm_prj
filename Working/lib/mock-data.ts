@@ -67,7 +67,7 @@ export const categories: Category[] = [
     name: 'Community Projects',
     description: 'Local community initiatives and improvements',
     icon: 'Users',
-    color: '#10b981',
+    color: '#B2C2DE',
     campaignCount: 78,
     isActive: true,
     createdAt: '2024-01-01T00:00:00Z',
@@ -1489,11 +1489,11 @@ export function getDaysRemaining(endDate: string): number {
 export function getStatusColor(status: string): string {
   switch (status) {
     case 'active':
-      return 'bg-green-100 text-green-800'
+      return 'bg-azure-100 text-azure-800'
     case 'completed':
       return 'bg-blue-100 text-blue-800'
     case 'draft':
-      return 'bg-yellow-100 text-yellow-800'
+      return 'bg-azure-100 text-azure-800'
     case 'suspended':
       return 'bg-red-100 text-red-800'
     case 'cancelled':
