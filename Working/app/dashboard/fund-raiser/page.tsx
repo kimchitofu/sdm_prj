@@ -23,6 +23,7 @@ import { Progress } from "@/components/ui/progress"
 import { DashboardLayout } from "@/components/layout/dashboard-sidebar"
 import { StatsCard } from "@/components/ui/stats-card"
 import { campaigns, users, analyticsData } from "@/lib/mock-data"
+import { useCurrentUser } from "@/hooks/use-current-user"
 import {
   AreaChart,
   Area,
@@ -33,7 +34,7 @@ import {
   ResponsiveContainer,
 } from "recharts"
 
-const fundRaiserUser = users.find((u) => u.role === "fund_raiser") || users[1]
+const fallbackFundRaiserUser = users.find((u) => u.role === "fund_raiser") || users[1]
 
 const myCampaigns = campaigns.filter((c) => c.organiser.id === "user-2").slice(0, 8)
 const activeCampaigns = myCampaigns.filter((c) => c.status === "active")
@@ -74,6 +75,8 @@ const quickActions = [
 ]
 
 export default function FundRaiserDashboardPage() {
+  const currentUser = useCurrentUser(fallbackFundRaiserUser)
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -88,16 +91,16 @@ export default function FundRaiserDashboardPage() {
     <DashboardLayout
       role="fund_raiser"
       user={{
-        name: fundRaiserUser.displayName,
-        email: fundRaiserUser.email,
-        avatar: fundRaiserUser.avatar,
+        name: currentUser.displayName,
+        email: currentUser.email,
+        avatar: currentUser.avatar,
         role: "Fund Raiser",
       }}
     >
       <div className="mb-8">
         <h1 className="mb-2 text-2xl font-bold text-foreground md:text-3xl">Fund Raiser Dashboard</h1>
         <p className="text-muted-foreground">
-          Welcome back, {fundRaiserUser.displayName.split(" ")[0]}! Here&apos;s your campaign overview.
+          Welcome back, {currentUser.displayName.split(" ")[0]}! Here&apos;s your campaign overview.
         </p>
       </div>
 

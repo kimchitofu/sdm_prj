@@ -17,6 +17,9 @@ import {
   Menu,
   ChevronRight,
   LogOut,
+  ClipboardCheck,
+  Flag,
+  Download,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -26,6 +29,7 @@ import { Separator } from "@/components/ui/separator"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Logo } from "@/components/brand/logo"
 import { UserRole } from "@/lib/types"
+import { useCurrentUser } from "@/hooks/use-current-user"
 
 interface NavItem {
   href: string
@@ -60,7 +64,11 @@ const fundRaiserNavItems: NavItem[] = [
 ]
 
 const adminNavItems: NavItem[] = [
+  { href: "/dashboard/admin", label: "Dashboard", icon: <LayoutDashboard className="h-5 w-5" /> },
   { href: "/dashboard/admin/users", label: "User Management", icon: <Users className="h-5 w-5" /> },
+  { href: "/dashboard/admin/campaigns", label: "Campaign Review", icon: <ClipboardCheck className="h-5 w-5" /> },
+  { href: "/dashboard/admin/reports-queue", label: "Reports Queue", icon: <Flag className="h-5 w-5" /> },
+  { href: "/dashboard/admin/reports", label: "Export Reports", icon: <Download className="h-5 w-5" /> },
 ]
 
 const platformNavItems: NavItem[] = [
@@ -75,9 +83,9 @@ const getNavItems = (role: UserRole): NavItem[] => {
       return doneeNavItems
     case "fund_raiser":
       return fundRaiserNavItems
-    case "admin":
+    case "user_admin":
       return adminNavItems
-    case "platform_manager":
+    case "platform_management":
       return platformNavItems
     default:
       return []
@@ -90,9 +98,9 @@ const getRoleLabel = (role: UserRole): string => {
       return "Donee"
     case "fund_raiser":
       return "Fund Raiser"
-    case "admin":
+    case "user_admin":
       return "Admin"
-    case "platform_manager":
+    case "platform_management":
       return "Platform Manager"
     default:
       return "User"
@@ -104,6 +112,7 @@ function isNavItemActive(pathname: string, href: string) {
     "/dashboard/donee",
     "/dashboard/fund-raiser",
     "/dashboard/platform",
+    "/dashboard/admin",
   ])
 
   if (exactOnlyRoutes.has(href)) {
@@ -218,11 +227,13 @@ function SidebarContent({ role, user, pathname, onNavigate }: {
 export function DashboardSidebar({ role, user }: DashboardSidebarProps) {
   const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const storedUser = useCurrentUser({ displayName: user?.name ?? '', email: user?.email ?? '', avatar: user?.avatar })
+  const resolvedUser = { name: storedUser.displayName, email: storedUser.email, avatar: storedUser.avatar, role: user?.role ?? '' }
 
   return (
     <>
       <aside className="hidden border-r border-border bg-card lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-64 lg:flex-col">
-        <SidebarContent role={role} user={user} pathname={pathname} />
+        <SidebarContent role={role} user={resolvedUser} pathname={pathname} />
       </aside>
 
       <header className="fixed left-0 right-0 top-0 z-50 border-b border-border bg-card lg:hidden">
@@ -237,7 +248,7 @@ export function DashboardSidebar({ role, user }: DashboardSidebarProps) {
             <SheetContent side="left" className="w-72 p-0">
               <SidebarContent
                 role={role}
-                user={user}
+                user={resolvedUser}
                 pathname={pathname}
                 onNavigate={() => setMobileOpen(false)}
               />

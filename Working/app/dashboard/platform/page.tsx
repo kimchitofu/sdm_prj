@@ -66,7 +66,7 @@ export default function PlatformDashboardPage() {
 
   return (
     <DashboardLayout 
-      role="platform_manager" 
+      role="platform_management"
       user={{
         name: platformUser.displayName,
         email: platformUser.email,
