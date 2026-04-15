@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell \"Get-Process node -ErrorAction SilentlyContinue | Select-Object Id, CPU, WorkingSet | Format-Table\")",
+      "Bash(powershell.exe -Command \"Get-Process -Name node -ErrorAction SilentlyContinue | Select-Object Id, CPU, WorkingSet | Format-Table\")",
+      "Read(//c/Users/65845/Desktop/Wollongong Homework/Year3 sem1/Sofware/project/**)"
+    ]
+  }
+}
