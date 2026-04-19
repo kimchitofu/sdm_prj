@@ -38,7 +38,7 @@ import {
 const platformUser = {
   displayName: 'Platform Manager',
   email: 'manager@fundbridge.org',
-  role: 'Platform Manager'
+  role: 'platform_manager'
 }
 
 // Platform stats
@@ -70,7 +70,7 @@ export default function PlatformDashboardPage() {
       user={{
         name: platformUser.displayName,
         email: platformUser.email,
-        role: 'Platform Manager'
+        role: platformUser.role
       }}
     >
       {/* Header */}

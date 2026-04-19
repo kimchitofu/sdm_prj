@@ -3,8 +3,9 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { users } from '@/lib/mock-data'
-import { getRegisteredUsers, saveCurrentUser } from '@/lib/utils'
+import { signInWithEmailAndPassword } from 'firebase/auth'
+import { auth, createTestUser } from '@/lib/firebase'
+import { getUserProfile, getRedirectForRole } from '@/lib/user'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import { Logo } from '@/components/brand/logo'
 import { Button } from '@/components/ui/button'
@@ -46,42 +47,57 @@ export default function SignInPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    if (!validateForm()) return
-    
-    setIsLoading(true)
-    
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-    
-    const email = formData.email.toLowerCase()
-    const registeredUsers = getRegisteredUsers()
-    const registeredMatch = registeredUsers.find(u => u.email.toLowerCase() === email)
-    const mockMatch = users.find(u => u.email.toLowerCase() === email)
 
-    // Determine redirect based on role
-    let redirectPath = '/dashboard/donee'
-    if (email === 'admin@gmail.com' || email === 'admin@fundbridge.com' || email.includes('admin')) {
-      redirectPath = '/dashboard/admin'
-    } else if (email.includes('platform') || email.includes('manager')) {
-      redirectPath = '/dashboard/platform'
-    } else if (email.includes('fundraiser') || email.includes('fund')) {
-      redirectPath = '/dashboard/fund-raiser'
-    } else if (registeredMatch) {
-      redirectPath = registeredMatch.role === 'fund_raiser' ? '/dashboard/fund-raiser' : '/dashboard/donee'
+    if (!validateForm()) return
+
+    setIsLoading(true)
+
+    try {
+      await signInWithEmailAndPassword(auth, formData.email, formData.password)
+      toast.success('Welcome back!', {
+        description: 'You have successfully signed in.',
+      })
+      // fetch user profile to determine role-based redirect
+      const uid = auth.currentUser?.uid
+      const profile = uid ? await getUserProfile(uid) : null
+      const redirect = getRedirectForRole(profile?.role)
+      router.push(redirect)
+    } catch (error) {
+      toast.error('An error occurred', {
+        description: 'Please try again.',
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleDemoLogin = (role: string) => {
+    const demoAccounts: Record<string, { email: string }> = {
+      donee: { email: 'donee@example.com' },
+      fund_raiser: { email: 'fundraiser@example.com' },
+      admin: { email: 'admin@example.com' },
     }
 
-    // Persist the logged-in user for dashboard display
-    const userForStorage = mockMatch
-      ? { displayName: mockMatch.displayName, email: mockMatch.email, avatar: mockMatch.avatar }
-      : registeredMatch ?? null
-    if (userForStorage) saveCurrentUser(userForStorage)
+    const account = demoAccounts[role]
+    if (account) {
+      setFormData({ ...formData, email: account.email, password: 'demo123' })
+      toast.success(`Demo: ${role.replace('_', ' ')} account`, {
+        description: 'Click Sign In to continue with demo account.',
+      })
+    }
+  }
 
-    toast.success('Welcome back!', {
-      description: 'You have successfully signed in.',
-    })
-
-    router.push(redirectPath)
+  const handleCreateTestUser = async () => {
+    try {
+      await createTestUser()
+      toast.success('Test user created', {
+        description: 'admin@example.com / demo123',
+      })
+    } catch (error: any) {
+      toast.error('Failed to create user', {
+        description: error.message,
+      })
+    }
   }
 
   return (
@@ -224,21 +240,41 @@ export default function SignInPage() {
                 </div>
 
                 <div className="mt-4 grid grid-cols-2 gap-2">
-                  <Link href="/dashboard/donee">
-                    <Button type="button" variant="outline" size="sm" className="w-full">
-                      Donor Demo
-                    </Button>
-                  </Link>
-                  <Link href="/dashboard/fund-raiser">
-                    <Button type="button" variant="outline" size="sm" className="w-full">
-                      Fund Raiser Demo
-                    </Button>
-                  </Link>
-                  <Link href="/dashboard/platform">
-                    <Button type="button" variant="outline" size="sm" className="w-full col-span-2">
-                      Platform Demo
-                    </Button>
-                  </Link>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDemoLogin('donee')}
+                  >
+                    Donee Demo
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDemoLogin('fund_raiser')}
+                  >
+                    Fund Raiser Demo
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDemoLogin('admin')}
+                  >
+                    Admin Demo
+                  </Button>
+                </div>
+
+                <div className="mt-4">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={handleCreateTestUser}
+                    className="w-full"
+                  >
+                    Create Test User
+                  </Button>
                 </div>
               </div>
 

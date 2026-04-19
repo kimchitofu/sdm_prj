@@ -4,6 +4,10 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
+import { createUserWithEmailAndPassword } from 'firebase/auth'
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore'
+import { auth, db } from '@/lib/firebase'
+import { getRedirectForRole } from '@/lib/user'
 import { Eye, EyeOff, Loader2, Heart, TrendingUp, Check } from 'lucide-react'
 import { Logo } from '@/components/brand/logo'
 import { Button } from '@/components/ui/button'
@@ -111,34 +115,38 @@ function RegisterForm() {
 
     setIsLoading(true)
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500))
+    try {
+      // Create user with Firebase Authentication
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        formData.email,
+        formData.password
+      )
 
-    const newUser = {
-      id: `user-reg-${Date.now()}`,
-      email: formData.email,
-      displayName: `${formData.firstName} ${formData.lastName}`,
-      firstName: formData.firstName,
-      lastName: formData.lastName,
-      role: selectedRole ?? undefined,
-      isVerified: false,
-      status: 'active',
-      createdAt: new Date().toISOString(),
+      const user = userCredential.user
+
+      // Store user profile in Firestore
+      const roleToStore = selectedRole ?? 'donee'
+      await setDoc(doc(db, 'users', user.uid), {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        role: roleToStore,
+        createdAt: serverTimestamp(),
+      })
+
+      toast.success('Account created successfully!', {
+        description: "Welcome to FundBridge. Let's get started!",
+      })
+      const redirect = getRedirectForRole(roleToStore)
+      router.push(redirect)
+    } catch (error) {
+      toast.error('An error occurred', {
+        description: 'Please try again.',
+      })
+    } finally {
+      setIsLoading(false)
     }
-    const existing = getRegisteredUsers()
-    saveRegisteredUsers([...existing, newUser])
-    saveCurrentUser(newUser)
-
-    toast.success('Account created successfully!', {
-      description: 'Welcome to FundBridge. Let\'s get started!',
-    })
-
-    // Redirect based on role
-    const redirectPath = selectedRole === 'fund_raiser'
-      ? '/dashboard/fund-raiser'
-      : '/dashboard/donee'
-
-    router.push(redirectPath)
   }
 
   return (

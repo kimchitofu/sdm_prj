@@ -67,7 +67,7 @@ import { Category } from "@/lib/types"
 const platformUser = {
   displayName: 'Platform Manager',
   email: 'manager@fundbridge.org',
-  role: 'Platform Manager'
+  role: 'platform_manager'
 }
 
 const colorOptions = [
@@ -144,10 +144,10 @@ export default function CategoriesPage() {
     <DashboardLayout 
       role="platform_management"
       user={{
-        name: platformUser.displayName,
-        email: platformUser.email,
-        role: 'Platform Manager'
-      }}
+          name: platformUser.displayName,
+          email: platformUser.email,
+          role: platformUser.role
+        }}
     >
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
