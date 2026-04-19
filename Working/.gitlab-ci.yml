@@ -1,0 +1,46 @@
+image: node:20
+
+stages:
+  - build
+  - deploy
+
+variables:
+  NODE_ENV: production
+  # Use corepack to enable pnpm in the runner
+
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - node_modules/
+    - .pnpm-store/
+
+before_script:
+  - corepack enable
+  - corepack prepare pnpm@latest --activate
+
+build_job:
+  stage: build
+  script:
+    - pnpm install --frozen-lockfile
+    - pnpm build
+    - pnpm export
+  artifacts:
+    paths:
+      - .next/
+      - out/
+  only:
+    - main
+
+firebase_deploy:
+  stage: deploy
+  script:
+    - |
+      if [ -z "$FIREBASE_PROJECT_ID" ] || [ -z "$FIREBASE_TOKEN" ]; then
+        echo "FIREBASE_PROJECT_ID and FIREBASE_TOKEN must be set in CI variables" >&2
+        exit 1
+      fi
+    - npx firebase-tools@latest deploy --project "$FIREBASE_PROJECT_ID" --token "$FIREBASE_TOKEN" --only hosting,firestore
+  only:
+    - main
+  dependencies:
+    - build_job

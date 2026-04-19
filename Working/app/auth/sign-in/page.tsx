@@ -3,6 +3,9 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { signInWithEmailAndPassword } from 'firebase/auth'
+import { auth } from '@/lib/firebase'
+import { getUserProfile, getRedirectForRole } from '@/lib/user'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import { Logo } from '@/components/brand/logo'
 import { Button } from '@/components/ui/button'
@@ -44,31 +47,28 @@ export default function SignInPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!validateForm()) return
-    
+
     setIsLoading(true)
-    
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-    
-    // Demo login - route based on email prefix for demo purposes
-    const email = formData.email.toLowerCase()
-    let redirectPath = '/dashboard/donee'
-    
-    if (email.includes('admin')) {
-      redirectPath = '/dashboard/admin/users'
-    } else if (email.includes('platform') || email.includes('manager')) {
-      redirectPath = '/dashboard/platform'
-    } else if (email.includes('fundraiser') || email.includes('fund')) {
-      redirectPath = '/dashboard/fund-raiser'
+
+    try {
+      await signInWithEmailAndPassword(auth, formData.email, formData.password)
+      toast.success('Welcome back!', {
+        description: 'You have successfully signed in.',
+      })
+      // fetch user profile to determine role-based redirect
+      const uid = auth.currentUser?.uid
+      const profile = uid ? await getUserProfile(uid) : null
+      const redirect = getRedirectForRole(profile?.role)
+      router.push(redirect)
+    } catch (error) {
+      toast.error('An error occurred', {
+        description: 'Please try again.',
+      })
+    } finally {
+      setIsLoading(false)
     }
-    
-    toast.success('Welcome back!', {
-      description: 'You have successfully signed in.',
-    })
-    
-    router.push(redirectPath)
   }
 
   const handleDemoLogin = (role: string) => {
