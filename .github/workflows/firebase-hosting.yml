@@ -44,5 +44,5 @@ jobs:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
           FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
         run: |
-          # Deploy using firebase-tools from the repository root which contains firebase.json
-          npx firebase-tools@latest deploy --only hosting --project "$FIREBASE_PROJECT_ID" --token "$FIREBASE_TOKEN"
+          # Deploy using firebase-tools and point to the Working/firebase.json config
+          npx firebase-tools@latest deploy --only hosting --project "$FIREBASE_PROJECT_ID" --token "$FIREBASE_TOKEN" --config ./Working/firebase.json

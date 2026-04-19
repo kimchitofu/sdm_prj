@@ -283,7 +283,7 @@ export default function ProfileSettingsPage() {
                   </div>
                   <div className="flex items-center justify-between gap-4">
                     <span className="text-muted-foreground">Account status</span>
-                    <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Active</Badge>
+                    <Badge className="bg-azure-100 text-azure-700 hover:bg-azure-100">Active</Badge>
                   </div>
                   <div className="flex items-center justify-between gap-4">
                     <span className="text-muted-foreground">Profile visibility</span>

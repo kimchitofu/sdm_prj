@@ -71,7 +71,7 @@ const platformUser = {
 }
 
 const colorOptions = [
-  { name: 'Emerald', value: '#10b981' },
+  { name: 'Azure Blue', value: '#B2C2DE' },
   { name: 'Blue', value: '#3b82f6' },
   { name: 'Purple', value: '#8b5cf6' },
   { name: 'Rose', value: '#f43f5e' },
@@ -85,7 +85,7 @@ export default function CategoriesPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [categoryList, setCategoryList] = useState(categories)
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
-  const [newCategory, setNewCategory] = useState({ name: '', description: '', color: '#10b981', icon: 'heart' })
+  const [newCategory, setNewCategory] = useState({ name: '', description: '', color: '#B2C2DE', icon: 'heart' })
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -100,8 +100,8 @@ export default function CategoriesPage() {
     cat.description.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  const activeCategories = categoryList.filter(c => c.status === 'active').length
-  const inactiveCategories = categoryList.filter(c => c.status === 'inactive').length
+  const activeCategories = categoryList.filter(c => c.isActive).length
+  const inactiveCategories = categoryList.filter(c => !c.isActive).length
   const totalUsage = categoryList.reduce((sum, c) => sum + getCampaignCount(c.name), 0)
 
   const handleCreateCategory = () => {
@@ -111,11 +111,12 @@ export default function CategoriesPage() {
       description: newCategory.description,
       icon: newCategory.icon,
       color: newCategory.color,
-      status: 'active',
+      campaignCount: 0,
+      isActive: true,
       createdAt: new Date().toISOString()
     }
     setCategoryList([...categoryList, newCat])
-    setNewCategory({ name: '', description: '', color: '#10b981', icon: 'heart' })
+    setNewCategory({ name: '', description: '', color: '#B2C2DE', icon: 'heart' })
     setShowCreateDialog(false)
   }
 
@@ -127,10 +128,8 @@ export default function CategoriesPage() {
   }
 
   const handleToggleStatus = (category: Category) => {
-    setCategoryList(categoryList.map(c => 
-      c.id === category.id 
-        ? { ...c, status: c.status === 'active' ? 'inactive' : 'active' }
-        : c
+    setCategoryList(categoryList.map(c =>
+      c.id === category.id ? { ...c, isActive: !c.isActive } : c
     ))
   }
 
@@ -143,7 +142,7 @@ export default function CategoriesPage() {
 
   return (
     <DashboardLayout 
-      role="platform_manager" 
+      role="platform_management"
       user={{
           name: platformUser.displayName,
           email: platformUser.email,
@@ -295,8 +294,8 @@ export default function CategoriesPage() {
                     <Badge variant="secondary">{getCampaignCount(category.name)}</Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={category.status === 'active' ? 'default' : 'secondary'}>
-                      {category.status}
+                    <Badge variant={category.isActive ? 'default' : 'secondary'}>
+                      {category.isActive ? 'Active' : 'Inactive'}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-muted-foreground">
@@ -315,7 +314,7 @@ export default function CategoriesPage() {
                           Edit
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleToggleStatus(category)}>
-                          {category.status === 'active' ? (
+                          {category.isActive ? (
                             <>
                               <XCircle className="h-4 w-4 mr-2" />
                               Deactivate

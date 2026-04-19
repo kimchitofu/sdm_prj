@@ -17,9 +17,9 @@ import { DashboardLayout } from "@/components/layout/dashboard-sidebar"
 import { StatsCard } from "@/components/ui/stats-card"
 import { CampaignCard } from "@/components/campaigns/campaign-card"
 import { campaigns, donations, users } from "@/lib/mock-data"
+import { useCurrentUser } from "@/hooks/use-current-user"
 
-// Get donee user
-const doneeUser = users.find(u => u.role === 'donee') || users[0]
+const fallbackDoneeUser = users.find(u => u.role === 'donee') || users[0]
 
 // Mock data for donee dashboard
 const doneeStats = {
@@ -39,24 +39,26 @@ const recentActivity = [
 const recommendedCampaigns = campaigns.filter(c => c.status === 'active').slice(0, 4)
 
 export default function DoneeDashboardPage() {
+  const currentUser = useCurrentUser(fallbackDoneeUser)
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(amount)
   }
 
   return (
-    <DashboardLayout 
-      role="donee" 
+    <DashboardLayout
+      role="donee"
       user={{
-        name: doneeUser.displayName,
-        email: doneeUser.email,
-        avatar: doneeUser.avatar,
+        name: currentUser.displayName,
+        email: currentUser.email,
+        avatar: currentUser.avatar,
         role: 'Donee'
       }}
     >
       {/* Welcome Header */}
       <div className="mb-8">
         <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
-          Welcome back, {doneeUser.displayName.split(' ')[0]}!
+          Welcome back, {currentUser.displayName.split(' ')[0]}!
         </h1>
         <p className="text-muted-foreground">
           Here&apos;s an overview of your giving journey and recommended campaigns.

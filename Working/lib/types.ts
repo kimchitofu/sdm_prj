@@ -184,6 +184,99 @@ export interface Notification {
   createdAt: string
 }
 
+// Audit Log Types
+export type AuditActionType =
+  | 'account_suspended'
+  | 'account_activated'
+  | 'account_deactivated'
+  | 'account_frozen'
+  | 'account_unfrozen'
+  | 'campaign_approved'
+  | 'campaign_rejected'
+  | 'campaign_under_review'
+  | 'report_resolved'
+  | 'report_dismissed'
+  | 'admin_login'
+  | 'password_changed'
+  | 'profile_updated'
+  | 'donation_made'
+  | 'campaign_created'
+  | 'campaign_published'
+
+export interface AuditLogEntry {
+  id: string
+  userId: string
+  targetId?: string
+  targetType?: 'user' | 'campaign' | 'donation' | 'report'
+  action: AuditActionType
+  description: string
+  performedBy: string
+  ipAddress?: string
+  createdAt: string
+}
+
+// Flagged Content / Report Types
+export type FlagReason =
+  | 'spam'
+  | 'fraud'
+  | 'inappropriate_content'
+  | 'misleading_information'
+  | 'harassment'
+  | 'copyright_violation'
+  | 'other'
+
+export type ReportStatus = 'pending' | 'under_review' | 'resolved' | 'dismissed'
+
+export interface CampaignReport {
+  id: string
+  campaignId: string
+  campaignTitle: string
+  reportedById: string
+  reportedByName: string
+  reason: FlagReason
+  description: string
+  status: ReportStatus
+  resolvedBy?: string
+  resolvedAt?: string
+  resolution?: string
+  createdAt: string
+}
+
+export interface MessageReport {
+  id: string
+  messageContent: string
+  senderId: string
+  senderName: string
+  reportedById: string
+  reportedByName: string
+  reason: FlagReason
+  description: string
+  status: ReportStatus
+  createdAt: string
+}
+
+// Campaign Review Types
+export type ReviewStatus = 'pending_review' | 'under_review' | 'approved' | 'rejected' | 'on_hold'
+
+export interface CampaignReview {
+  id: string
+  campaignId: string
+  campaignTitle: string
+  campaignCategory: string
+  campaignServiceType: string
+  targetAmount: number
+  organiserName: string
+  organiserEmail: string
+  isOrganiserVerified: boolean
+  submittedAt: string
+  reviewedBy?: string
+  reviewedAt?: string
+  status: ReviewStatus
+  notes?: string
+  flaggedIssues?: string[]
+  coverImage: string
+}
+
 // Filter and Search Types
 export interface CampaignFilters {
   keyword?: string

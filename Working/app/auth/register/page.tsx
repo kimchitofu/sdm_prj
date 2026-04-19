@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { cn } from '@/lib/utils'
+import { cn, getRegisteredUsers, saveRegisteredUsers, saveCurrentUser } from '@/lib/utils'
 import { toast } from 'sonner'
 
 type UserRole = 'donee' | 'fund_raiser'
@@ -115,6 +115,7 @@ function RegisterForm() {
 
     setIsLoading(true)
 
+<<<<<<< HEAD
     try {
       // Create user with Firebase Authentication
       const userCredential = await createUserWithEmailAndPassword(
@@ -147,6 +148,36 @@ function RegisterForm() {
     } finally {
       setIsLoading(false)
     }
+=======
+    // Simulate API call
+    await new Promise((resolve) => setTimeout(resolve, 1500))
+
+    const newUser = {
+      id: `user-reg-${Date.now()}`,
+      email: formData.email,
+      displayName: `${formData.firstName} ${formData.lastName}`,
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      role: selectedRole ?? undefined,
+      isVerified: false,
+      status: 'active',
+      createdAt: new Date().toISOString(),
+    }
+    const existing = getRegisteredUsers()
+    saveRegisteredUsers([...existing, newUser])
+    saveCurrentUser(newUser)
+
+    toast.success('Account created successfully!', {
+      description: 'Welcome to FundBridge. Let\'s get started!',
+    })
+
+    // Redirect based on role
+    const redirectPath = selectedRole === 'fund_raiser'
+      ? '/dashboard/fund-raiser'
+      : '/dashboard/donee'
+
+    router.push(redirectPath)
+>>>>>>> origin/main
   }
 
   return (

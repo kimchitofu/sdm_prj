@@ -52,8 +52,8 @@ export default function ForgotPasswordPage() {
           <CardHeader className="text-center">
             {isSubmitted ? (
               <>
-                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
-                  <CheckCircle2 className="h-6 w-6 text-green-600" />
+                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-azure-100">
+                  <CheckCircle2 className="h-6 w-6 text-azure-600" />
                 </div>
                 <CardTitle className="text-2xl">Check your email</CardTitle>
                 <CardDescription>

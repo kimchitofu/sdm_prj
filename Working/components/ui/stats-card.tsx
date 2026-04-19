@@ -27,16 +27,16 @@ export function StatsCard({
   const variantStyles = {
     default: 'bg-card',
     primary: 'bg-primary/5 border-primary/20',
-    success: 'bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800',
-    warning: 'bg-yellow-50 border-yellow-200 dark:bg-yellow-950/20 dark:border-yellow-800',
+    success: 'bg-azure-50 border-azure-200 dark:bg-azure-950/20 dark:border-azure-800',
+    warning: 'bg-azure-50 border-azure-200 dark:bg-azure-950/20 dark:border-azure-800',
     info: 'bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800',
   }
 
   const iconStyles = {
     default: 'bg-muted text-muted-foreground',
     primary: 'bg-primary/10 text-primary',
-    success: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400',
-    warning: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400',
+    success: 'bg-azure-100 text-azure-700 dark:bg-azure-900/40 dark:text-azure-400',
+    warning: 'bg-azure-100 text-azure-700 dark:bg-azure-900/40 dark:text-azure-400',
     info: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400',
   }
 
@@ -60,7 +60,7 @@ export function StatsCard({
               <span
                 className={cn(
                   'text-xs font-medium',
-                  trend.isPositive ? 'text-green-600' : 'text-red-600'
+                  trend.isPositive ? 'text-azure-600' : 'text-red-600'
                 )}
               >
                 {trend.isPositive ? '+' : ''}

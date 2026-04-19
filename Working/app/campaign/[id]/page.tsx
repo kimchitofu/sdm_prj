@@ -48,7 +48,7 @@ import { Switch } from "@/components/ui/switch"
 import { PublicNavbar } from "@/components/layout/public-navbar"
 import { Footer } from "@/components/layout/footer"
 import { CampaignCard } from "@/components/campaigns/campaign-card"
-import { campaigns, donations, campaignUpdates } from "@/lib/mock-data"
+import { campaigns, donations } from "@/lib/mock-data"
 
 const donationPresets = [25, 50, 100, 250, 500, 1000]
 
@@ -59,7 +59,7 @@ export default function CampaignDetailPage() {
   const campaign = campaigns.find(c => c.id === campaignId) || campaigns[0]
   const relatedCampaigns = campaigns.filter(c => c.category === campaign.category && c.id !== campaign.id).slice(0, 3)
   const campaignDonations = donations.filter(d => d.campaignId === campaign.id).slice(0, 5)
-  const updates = campaignUpdates.filter(u => u.campaignId === campaign.id)
+  const updates = campaign.updates ?? []
   
   const [isFavourite, setIsFavourite] = useState(false)
   const [donationAmount, setDonationAmount] = useState<number>(50)
@@ -112,7 +112,7 @@ export default function CampaignDetailPage() {
                   alt={campaign.title}
                   className="w-full h-full object-cover"
                 />
-                {campaign.isVerified && (
+                {campaign.organiser.isVerified && (
                   <Badge className="absolute top-4 left-4 bg-primary text-primary-foreground">
                     <CheckCircle2 className="h-3 w-3 mr-1" />
                     Verified

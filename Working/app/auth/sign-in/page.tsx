@@ -3,9 +3,14 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+<<<<<<< HEAD
 import { signInWithEmailAndPassword } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
 import { getUserProfile, getRedirectForRole } from '@/lib/user'
+=======
+import { users } from '@/lib/mock-data'
+import { getRegisteredUsers, saveCurrentUser } from '@/lib/utils'
+>>>>>>> origin/main
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import { Logo } from '@/components/brand/logo'
 import { Button } from '@/components/ui/button'
@@ -37,8 +42,8 @@ export default function SignInPage() {
     
     if (!formData.password) {
       newErrors.password = 'Password is required'
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters'
+    } else if (formData.password.length < 5) {
+      newErrors.password = 'Password must be at least 5 characters'
     }
     
     setErrors(newErrors)
@@ -51,6 +56,7 @@ export default function SignInPage() {
     if (!validateForm()) return
 
     setIsLoading(true)
+<<<<<<< HEAD
 
     try {
       await signInWithEmailAndPassword(auth, formData.email, formData.password)
@@ -86,6 +92,40 @@ export default function SignInPage() {
         description: 'Click Sign In to continue with demo account.',
       })
     }
+=======
+    
+    // Simulate API call
+    await new Promise((resolve) => setTimeout(resolve, 1500))
+    
+    const email = formData.email.toLowerCase()
+    const registeredUsers = getRegisteredUsers()
+    const registeredMatch = registeredUsers.find(u => u.email.toLowerCase() === email)
+    const mockMatch = users.find(u => u.email.toLowerCase() === email)
+
+    // Determine redirect based on role
+    let redirectPath = '/dashboard/donee'
+    if (email === 'admin@gmail.com' || email === 'admin@fundbridge.com' || email.includes('admin')) {
+      redirectPath = '/dashboard/admin'
+    } else if (email.includes('platform') || email.includes('manager')) {
+      redirectPath = '/dashboard/platform'
+    } else if (email.includes('fundraiser') || email.includes('fund')) {
+      redirectPath = '/dashboard/fund-raiser'
+    } else if (registeredMatch) {
+      redirectPath = registeredMatch.role === 'fund_raiser' ? '/dashboard/fund-raiser' : '/dashboard/donee'
+    }
+
+    // Persist the logged-in user for dashboard display
+    const userForStorage = mockMatch
+      ? { displayName: mockMatch.displayName, email: mockMatch.email, avatar: mockMatch.avatar }
+      : registeredMatch ?? null
+    if (userForStorage) saveCurrentUser(userForStorage)
+
+    toast.success('Welcome back!', {
+      description: 'You have successfully signed in.',
+    })
+
+    router.push(redirectPath)
+>>>>>>> origin/main
   }
 
   return (
@@ -228,6 +268,7 @@ export default function SignInPage() {
                 </div>
 
                 <div className="mt-4 grid grid-cols-2 gap-2">
+<<<<<<< HEAD
                   <Button
                     type="button"
                     variant="outline"
@@ -260,6 +301,23 @@ export default function SignInPage() {
                   >
                     Platform Demo
                   </Button>
+=======
+                  <Link href="/dashboard/donee">
+                    <Button type="button" variant="outline" size="sm" className="w-full">
+                      Donor Demo
+                    </Button>
+                  </Link>
+                  <Link href="/dashboard/fund-raiser">
+                    <Button type="button" variant="outline" size="sm" className="w-full">
+                      Fund Raiser Demo
+                    </Button>
+                  </Link>
+                  <Link href="/dashboard/platform">
+                    <Button type="button" variant="outline" size="sm" className="w-full col-span-2">
+                      Platform Demo
+                    </Button>
+                  </Link>
+>>>>>>> origin/main
                 </div>
               </div>
 

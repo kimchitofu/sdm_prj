@@ -1,7 +1,7 @@
 import { doc, getDoc } from 'firebase/firestore'
 import { db } from './firebase'
 
-export type UserRole = 'donee' | 'fund_raiser' | 'admin' | 'platform' | string
+export type UserRole = 'donee' | 'fund_raiser' | 'admin' | 'platform_manager' | string
 
 export type UserProfile = {
   firstName?: string
@@ -32,7 +32,7 @@ export function getRedirectForRole(role?: UserRole) {
       return '/dashboard/donee'
     case 'admin':
       return '/dashboard/admin/users'
-    case 'platform':
+    case 'platform_manager':
       return '/dashboard/platform'
     default:
       return '/dashboard'

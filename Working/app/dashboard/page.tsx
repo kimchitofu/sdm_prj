@@ -28,7 +28,7 @@ export default function DashboardRedirect() {
           case 'ADMIN':
             router.push('/dashboard/admin/users')
             break
-          case 'PLATFORM':
+          case 'PLATFORM_MANAGER':
             router.push('/dashboard/platform')
             break
           case 'FUND_RAISER':
@@ -41,8 +41,8 @@ export default function DashboardRedirect() {
             break
         }
       } catch (e) {
-        // Fallback
-        router.push('/dashboard')
+        // Fallback: don't redirect back to this same page (would cause loop)
+        router.push('/auth/sign-in')
       }
     }
 

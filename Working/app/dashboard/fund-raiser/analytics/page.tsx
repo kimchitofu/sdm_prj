@@ -352,7 +352,7 @@ export default function AnalyticsPage() {
                   insight.type === "warning"
                     ? "border-amber-500/20 bg-amber-500/10"
                     : insight.type === "success"
-                      ? "border-emerald-500/20 bg-emerald-500/10"
+                      ? "border-azure-500/20 bg-azure-500/10"
                       : "border-primary/20 bg-primary/10"
                 }`}
               >
@@ -360,7 +360,7 @@ export default function AnalyticsPage() {
                   {insight.type === "warning" ? (
                     <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
                   ) : insight.type === "success" ? (
-                    <TrendingUp className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                    <TrendingUp className="mt-0.5 h-4 w-4 shrink-0 text-azure-600" />
                   ) : (
                     <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                   )}

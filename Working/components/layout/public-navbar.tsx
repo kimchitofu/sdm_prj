@@ -40,40 +40,39 @@ export function PublicNavbar() {
           <Logo />
           
           {/* Desktop Navigation */}
-          <NavigationMenu className="hidden lg:flex">
+          <NavigationMenu className="hidden lg:flex" viewport={false}>
             <NavigationMenuList>
               {navItems.map((item) => (
                 <NavigationMenuItem key={item.href}>
-                  <Link href={item.href} legacyBehavior passHref>
-                    <NavigationMenuLink
+                  <NavigationMenuLink asChild>
+                    <Link
+                      href={item.href}
                       className={cn(
                         'group inline-flex h-9 w-max items-center justify-center rounded-md bg-transparent px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none disabled:pointer-events-none disabled:opacity-50',
                         pathname === item.href && 'bg-accent/50'
                       )}
                     >
                       {item.label}
-                    </NavigationMenuLink>
-                  </Link>
+                    </Link>
+                  </NavigationMenuLink>
                 </NavigationMenuItem>
               ))}
               
-              <NavigationMenuItem>
+              <NavigationMenuItem className="relative">
                 <NavigationMenuTrigger className="bg-transparent">Categories</NavigationMenuTrigger>
                 <NavigationMenuContent>
-                  <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px]">
+                  <ul className="grid w-[400px] gap-2 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px]">
                     {categories.slice(0, 8).map((category) => (
                       <li key={category.id}>
-                        <NavigationMenuLink asChild>
-                          <Link
-                            href={`/browse?category=${encodeURIComponent(category.name)}`}
-                            className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
-                          >
-                            <div className="text-sm font-medium leading-none">{category.name}</div>
-                            <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
-                              {category.description}
-                            </p>
-                          </Link>
-                        </NavigationMenuLink>
+                        <Link
+                          href={`/browse?category=${encodeURIComponent(category.name)}`}
+                          className="block select-none rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
+                        >
+                          <div className="text-sm font-semibold text-foreground">{category.name}</div>
+                          <p className="mt-1 line-clamp-2 text-xs leading-snug text-muted-foreground">
+                            {category.description}
+                          </p>
+                        </Link>
                       </li>
                     ))}
                   </ul>
