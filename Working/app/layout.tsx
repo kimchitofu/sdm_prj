@@ -59,9 +59,9 @@ export default function RootLayout({
       <body className={`${inter.variable} ${geistMono.variable} font-sans antialiased`}>
         <AuthProvider>
           {children}
+          <Toaster position="top-right" richColors />
+          <Analytics />
         </AuthProvider>
-        <Toaster position="top-right" richColors />
-        <Analytics />
       </body>
     </html>
   )

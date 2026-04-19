@@ -76,7 +76,7 @@ export default function SignInPage() {
       donee: { email: 'donor@demo.com', redirect: '/dashboard/donee' },
       fund_raiser: { email: 'fundraiser@demo.com', redirect: '/dashboard/fund-raiser' },
       admin: { email: 'admin@demo.com', redirect: '/dashboard/admin/users' },
-      platform: { email: 'platform@demo.com', redirect: '/dashboard/platform' },
+      platform_manager: { email: 'platform@demo.com', redirect: '/dashboard/platform' },
     }
     
     const account = demoAccounts[role]
@@ -256,7 +256,7 @@ export default function SignInPage() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => handleDemoLogin('platform')}
+                    onClick={() => handleDemoLogin('platform_manager')}
                   >
                     Platform Demo
                   </Button>
