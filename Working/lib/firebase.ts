@@ -24,14 +24,14 @@ export const db = getFirestore(app)
 // flag so it will be inlined at build time for the browser bundle.
 if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === 'true') {
   try {
-    // Firestore emulator (default host: 127.0.0.1, port: 8080)
+    // Firestore emulator (default host: 127.0.0.1, port: 8081)
     const firestoreHost = process.env.NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST || '127.0.0.1'
-    const firestorePort = Number(process.env.NEXT_PUBLIC_FIRESTORE_EMULATOR_PORT || '8080')
+    const firestorePort = Number(process.env.NEXT_PUBLIC_FIRESTORE_EMULATOR_PORT || '8081')
     connectFirestoreEmulator(db, firestoreHost, firestorePort)
 
     // Auth emulator (only on client side)
     if (typeof window !== 'undefined') {
-      const authEmulatorUrl = process.env.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_URL || 'http://127.0.0.1:9099'
+      const authEmulatorUrl = process.env.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_URL || 'http://127.0.0.1:9098'
       connectAuthEmulator(auth, authEmulatorUrl, { disableWarnings: true })
     }
   } catch (e) {
