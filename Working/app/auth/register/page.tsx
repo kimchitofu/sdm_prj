@@ -115,7 +115,6 @@ function RegisterForm() {
 
     setIsLoading(true)
 
-<<<<<<< HEAD
     try {
       // Create user with Firebase Authentication
       const userCredential = await createUserWithEmailAndPassword(
@@ -148,36 +147,6 @@ function RegisterForm() {
     } finally {
       setIsLoading(false)
     }
-=======
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-
-    const newUser = {
-      id: `user-reg-${Date.now()}`,
-      email: formData.email,
-      displayName: `${formData.firstName} ${formData.lastName}`,
-      firstName: formData.firstName,
-      lastName: formData.lastName,
-      role: selectedRole ?? undefined,
-      isVerified: false,
-      status: 'active',
-      createdAt: new Date().toISOString(),
-    }
-    const existing = getRegisteredUsers()
-    saveRegisteredUsers([...existing, newUser])
-    saveCurrentUser(newUser)
-
-    toast.success('Account created successfully!', {
-      description: 'Welcome to FundBridge. Let\'s get started!',
-    })
-
-    // Redirect based on role
-    const redirectPath = selectedRole === 'fund_raiser'
-      ? '/dashboard/fund-raiser'
-      : '/dashboard/donee'
-
-    router.push(redirectPath)
->>>>>>> origin/main
   }
 
   return (
