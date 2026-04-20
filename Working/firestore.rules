@@ -1,0 +1,56 @@
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null
+    }
+
+    function isAdmin() {
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+    }
+
+    // Users: users can read/write their own profile; admins can manage
+    match /users/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin())
+      allow create: if isSignedIn() && request.auth.uid == userId
+      allow update, delete: if isSignedIn() && (request.auth.uid == userId || isAdmin())
+    }
+
+    // Campaigns: public read, create by authenticated fundraisers (ownerId must match), update/delete by owner or admins
+    match /campaigns/{campaignId} {
+      allow read: if true
+      allow create: if isSignedIn() && (request.resource.data.ownerId == request.auth.uid || isAdmin())
+      allow update, delete: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin())
+    }
+
+    // Donations: only signed in users can create donations and donorId must match request.auth.uid
+    // Campaign owners or admins can read donations for their campaigns
+    match /donations/{donationId} {
+      allow create: if isSignedIn() && request.resource.data.donorId == request.auth.uid
+      allow read: if isSignedIn() && (
+        request.auth.uid == resource.data.donorId ||
+        request.auth.uid == resource.data.campaignOwnerId ||
+        isAdmin()
+      )
+      allow update, delete: if isAdmin()
+    }
+
+    // Favourites: users can manage their own favorites (ownerId field)
+    match /favourites/{favId} {
+      allow read: if true
+      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid
+      allow update, delete: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin())
+    }
+
+    // Categories: read by anyone, write only by admins
+    match /categories/{categoryId} {
+      allow read: if true
+      allow create, update, delete: if isAdmin()
+    }
+
+    // Default: deny all reads/writes unless matched above
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
