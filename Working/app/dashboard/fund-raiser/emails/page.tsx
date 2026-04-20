@@ -27,6 +27,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/hooks/use-toast"
 import { useCurrentUser } from "@/hooks/use-current-user"
 import { EmailAutomationController } from "@/app/controller/EmailAutomationController"
+import { generateAiDraftServer } from "@/app/controller/EmailAutomationController.server"
 import { isDonorSegmentKey, type DonorSegmentKey } from "@/app/entity/Donor"
 import { getEmailDraftToneLabel, type EmailDraftPurpose, type EmailDraftSummary, type EmailDraftTone } from "@/app/entity/EmailDraft"
 import type { EmailTriggerKey, EmailAutomationRuleSummary } from "@/app/entity/EmailAutomationRule"
@@ -248,15 +249,18 @@ export default function FundRaiserEmailsPage() {
 
     try {
       const nextVariation = regenerate ? variationIndex + 1 : 1
-      const draft = await emailAutomationController.generateAiDraft({
-        campaign: selectedCampaign,
-        selectedSegment,
-        purpose: manualPurpose,
-        tone: manualTone,
-        variationIndex: nextVariation,
-        additionalPrompt,
-        customPurposeText: manualPurpose === "custom" ? customPurposeText : undefined,
-      })
+      const draft = await emailAutomationController.generateAiDraft(
+        {
+          campaign: selectedCampaign,
+          selectedSegment,
+          purpose: manualPurpose,
+          tone: manualTone,
+          variationIndex: nextVariation,
+          additionalPrompt,
+          customPurposeText: manualPurpose === "custom" ? customPurposeText : undefined,
+        },
+        generateAiDraftServer
+      )
 
       setVariationIndex(nextVariation)
       setGeneratedDraft(draft)
