@@ -507,7 +507,10 @@ export class EmailAutomationController {
     })
   }
 
-  async generateAiDraft(input: GenerateAiDraftInput): Promise<EmailDraftSummary> {
+  async generateAiDraft(
+    input: GenerateAiDraftInput,
+    requestDraftGenerator: (payload: ReturnType<EmailGenerationRequest["toPayload"]>) => Promise<EmailDraftSummary>
+  ): Promise<EmailDraftSummary> {
     const request = this.createGenerationRequest(input)
     const validationError = request.validate()
 
@@ -515,21 +518,7 @@ export class EmailAutomationController {
       throw new Error(validationError)
     }
 
-    const response = await fetch("/api/ai/email-draft", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(request.toPayload()),
-    })
-
-    const data = (await response.json().catch(() => null)) as { draft?: EmailDraftSummary; error?: string } | null
-
-    if (!response.ok || !data?.draft) {
-      throw new Error(data?.error || "Unable to generate an AI email draft right now.")
-    }
-
-    return data.draft
+    return requestDraftGenerator(request.toPayload())
   }
 
   getSavedDrafts(fundRaiserUserId: string): EmailDraftSummary[] {
