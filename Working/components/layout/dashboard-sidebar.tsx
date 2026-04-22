@@ -83,9 +83,9 @@ const getNavItems = (role: UserRole): NavItem[] => {
       return doneeNavItems
     case "fund_raiser":
       return fundRaiserNavItems
-    case "user_admin":
+    case "admin":
       return adminNavItems
-    case "platform_management":
+    case "platform_manager":
       return platformNavItems
     default:
       return []
@@ -98,9 +98,9 @@ const getRoleLabel = (role: UserRole): string => {
       return "Donee"
     case "fund_raiser":
       return "Fund Raiser"
-    case "user_admin":
+    case "admin":
       return "Admin"
-    case "platform_management":
+    case "platform_manager":
       return "Platform Manager"
     default:
       return "User"
@@ -145,6 +145,7 @@ function SidebarContent({ role, user, pathname, onNavigate }: {
 
   const handleSignOut = async () => {
     await fetch('/api/auth/logout', { method: 'POST' })
+    localStorage.removeItem('currentUser')
     onNavigate?.()
     router.push('/auth/sign-in')
   }

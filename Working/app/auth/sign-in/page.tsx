@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { getRedirectForRole } from '@/lib/user'
 import { useAuth } from '@/components/providers/session-provider'
+import { saveCurrentUser } from '@/lib/utils'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import { Logo } from '@/components/brand/logo'
 import { Button } from '@/components/ui/button'
@@ -66,6 +67,14 @@ export default function SignInPage() {
         return
       }
 
+      saveCurrentUser({
+        id: data.user.id,
+        email: data.user.email,
+        displayName: `${data.user.firstName} ${data.user.lastName}`,
+        firstName: data.user.firstName,
+        lastName: data.user.lastName,
+        role: data.user.role,
+      })
       refresh()
       toast.success('Welcome back!', { description: 'You have successfully signed in.' })
       router.push(getRedirectForRole(data.user.role))

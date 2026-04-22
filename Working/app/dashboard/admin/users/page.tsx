@@ -241,11 +241,11 @@ export default function AdminUsersPage() {
 
   return (
     <DashboardLayout
-      role="user_admin"
+      role="admin"
       user={{
         name: adminUser.displayName,
         email: adminUser.email,
-        role: 'Admin'
+        role: 'admin'
       }}
     >
       {/* Header */}

@@ -66,8 +66,8 @@ const PIE_COLORS = ['#ef4444', '#3b82f6', '#10b981', '#8b5cf6', '#f59e0b']
 export default function AdminDashboardPage() {
   return (
     <DashboardLayout
-      role="user_admin"
-      user={{ name: adminUser.displayName, email: adminUser.email, role: 'Admin' }}
+      role="admin"
+      user={{ name: adminUser.displayName, email: adminUser.email, role: 'admin' }}
     >
       <div className="mb-8">
         <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">Admin Dashboard</h1>
