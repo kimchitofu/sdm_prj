@@ -1,43 +1,42 @@
 'use client'
 
-import React, { createContext, useContext, useEffect, useState } from 'react'
-import { getCurrentUser, saveCurrentUser, type StoredUser } from '@/lib/utils'
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react'
 
-type AuthContextValue = {
-  user: StoredUser | null
-  loading: boolean
-  setUser: (user: StoredUser | null) => void
+export type SessionUser = {
+  id: string
+  email: string
+  role: string
+  firstName: string
+  lastName: string
 }
 
-const AuthContext = createContext<AuthContextValue>({
-  user: null,
-  loading: true,
-  setUser: () => {},
-})
+type AuthContextValue = {
+  user: SessionUser | null
+  loading: boolean
+  refresh: () => void
+}
+
+const AuthContext = createContext<AuthContextValue>({ user: null, loading: true, refresh: () => {} })
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUserState] = useState<StoredUser | null>(null)
+  const [user, setUser] = useState<SessionUser | null>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    const stored = getCurrentUser()
-    setUserState(stored)
-    setLoading(false)
+  const refresh = useCallback(() => {
+    setLoading(true)
+    fetch('/api/auth/me')
+      .then((r) => r.json())
+      .then((data) => setUser(data.user ?? null))
+      .catch(() => setUser(null))
+      .finally(() => setLoading(false))
   }, [])
 
-  const setUser = (u: StoredUser | null) => {
-    if (u) {
-      saveCurrentUser(u)
-    } else {
-      try {
-        localStorage.removeItem('currentUser')
-      } catch {}
-    }
-    setUserState(u)
-  }
+  useEffect(() => {
+    refresh()
+  }, [refresh])
 
   return (
-    <AuthContext.Provider value={{ user, loading, setUser }}>
+    <AuthContext.Provider value={{ user, loading, refresh }}>
       {children}
     </AuthContext.Provider>
   )

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { signToken, COOKIE_NAME } from '@/lib/auth'
 import bcrypt from 'bcryptjs'
 
 export async function POST(request: Request) {
@@ -26,8 +27,27 @@ export async function POST(request: Request) {
       },
     })
 
-    const { password: _, ...safeUser } = user
-    return NextResponse.json(safeUser, { status: 201 })
+    const token = signToken({
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      firstName: user.firstName,
+      lastName: user.lastName,
+    })
+
+    const response = NextResponse.json({
+      user: { id: user.id, email: user.email, role: user.role, firstName: user.firstName, lastName: user.lastName },
+    }, { status: 201 })
+
+    response.cookies.set(COOKIE_NAME, token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7,
+      path: '/',
+    })
+
+    return response
   } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

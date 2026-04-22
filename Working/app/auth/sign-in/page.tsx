@@ -4,7 +4,6 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { getRedirectForRole } from '@/lib/user'
-import { saveCurrentUser } from '@/lib/utils'
 import { useAuth } from '@/components/providers/session-provider'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import { Logo } from '@/components/brand/logo'
@@ -17,7 +16,7 @@ import { toast } from 'sonner'
 
 export default function SignInPage() {
   const router = useRouter()
-  const { setUser } = useAuth()
+  const { refresh } = useAuth()
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [formData, setFormData] = useState({
@@ -67,21 +66,9 @@ export default function SignInPage() {
         return
       }
 
-      const storedUser = {
-        id: data.id,
-        email: data.email,
-        displayName: `${data.firstName} ${data.lastName}`,
-        firstName: data.firstName,
-        lastName: data.lastName,
-        role: data.role,
-        avatar: data.avatar ?? undefined,
-        isVerified: data.isVerified,
-        status: data.status,
-      }
-
-      setUser(storedUser)
+      refresh()
       toast.success('Welcome back!', { description: 'You have successfully signed in.' })
-      router.push(getRedirectForRole(data.role))
+      router.push(getRedirectForRole(data.user.role))
     } catch {
       toast.error('An error occurred', { description: 'Please try again.' })
     } finally {
@@ -93,12 +80,12 @@ export default function SignInPage() {
     const demoAccounts: Record<string, { email: string }> = {
       donee: { email: 'donee@example.com' },
       fund_raiser: { email: 'fundraiser@example.com' },
-      admin: { email: 'admin@example.com' },
+      admin: { email: 'admin@fundbridge.com' },
     }
 
     const account = demoAccounts[role]
     if (account) {
-      setFormData({ ...formData, email: account.email, password: 'Demo1234' })
+      setFormData({ ...formData, email: account.email, password: role === 'admin' ? 'Admin@1234' : 'Demo1234' })
       toast.success(`Demo: ${role.replace('_', ' ')} account`, {
         description: 'Click Sign In to continue with demo account.',
       })

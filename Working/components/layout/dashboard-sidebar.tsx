@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import {
   LayoutDashboard,
   Heart,
@@ -140,7 +140,14 @@ function SidebarContent({ role, user, pathname, onNavigate }: {
   pathname: string
   onNavigate?: () => void
 }) {
+  const router = useRouter()
   const navItems = getNavItems(role)
+
+  const handleSignOut = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' })
+    onNavigate?.()
+    router.push('/auth/sign-in')
+  }
   const roleLabel = getRoleLabel(role)
 
   return (
@@ -211,14 +218,13 @@ function SidebarContent({ role, user, pathname, onNavigate }: {
           <Settings className="h-5 w-5" />
           <span>Settings</span>
         </Link>
-        <Link
-          href="/auth/sign-in"
-          onClick={onNavigate}
-          className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        <button
+          onClick={handleSignOut}
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           <LogOut className="h-5 w-5" />
           <span>Sign Out</span>
-        </Link>
+        </button>
       </div>
     </div>
   )

@@ -3,7 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "mysql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -34,7 +35,7 @@ model Campaign {
   id                      String    @id @default(cuid())
   title                   String
   summary                 String
-  description             String
+  description             String    @db.Text
   category                String
   serviceType             String
   status                  String    @default("draft")
@@ -106,7 +107,7 @@ model Favourite {
 model CampaignUpdate {
   id         String   @id @default(cuid())
   title      String
-  content    String
+  content    String    @db.Text
   createdAt  DateTime @default(now())
 
   campaignId String
@@ -147,7 +148,7 @@ model EmailTemplate {
   id        String   @id @default(cuid())
   name      String
   subject   String
-  body      String
+  body      String    @db.Text
   variables String   @default("[]")
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
@@ -159,7 +160,7 @@ model EmailLog {
   templateId     String?
   recipientEmail String
   subject        String
-  body           String
+  body           String    @db.Text
   status         String   @default("sent")
   campaignId     String?
   sentAt         DateTime @default(now())
@@ -171,7 +172,7 @@ model EmailAutomationRule {
   triggerType String
   isActive    Boolean  @default(true)
   subject     String
-  body        String
+  body        String    @db.Text
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }

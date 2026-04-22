@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { signToken, COOKIE_NAME } from '@/lib/auth'
 import bcrypt from 'bcryptjs'
 
 export async function POST(request: Request) {
@@ -12,7 +13,7 @@ export async function POST(request: Request) {
 
     const user = await prisma.user.findUnique({ where: { email } })
     if (!user) {
-      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
+      return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 })
     }
 
     if (user.status !== 'active') {
@@ -21,7 +22,7 @@ export async function POST(request: Request) {
 
     const valid = await bcrypt.compare(password, user.password)
     if (!valid) {
-      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
+      return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 })
     }
 
     await prisma.user.update({
@@ -29,8 +30,33 @@ export async function POST(request: Request) {
       data: { lastLoginAt: new Date() },
     })
 
-    const { password: _, ...safeUser } = user
-    return NextResponse.json(safeUser)
+    const token = signToken({
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      firstName: user.firstName,
+      lastName: user.lastName,
+    })
+
+    const response = NextResponse.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        firstName: user.firstName,
+        lastName: user.lastName,
+      },
+    })
+
+    response.cookies.set(COOKIE_NAME, token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7,
+      path: '/',
+    })
+
+    return response
   } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

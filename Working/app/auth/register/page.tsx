@@ -49,7 +49,7 @@ function RegisterForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const defaultRole = searchParams.get('role') as UserRole | null
-  const { setUser } = useAuth()
+  const { refresh } = useAuth()
 
   const [step, setStep] = useState<'role' | 'details'>(defaultRole ? 'details' : 'role')
   const [selectedRole, setSelectedRole] = useState<UserRole | null>(defaultRole)
@@ -127,21 +127,11 @@ function RegisterForm() {
         return
       }
 
-      setUser({
-        id: data.id,
-        email: data.email,
-        displayName: `${data.firstName} ${data.lastName}`,
-        firstName: data.firstName,
-        lastName: data.lastName,
-        role: data.role,
-        isVerified: data.isVerified,
-        status: data.status,
-      })
-
+      refresh()
       toast.success('Account created successfully!', {
         description: "Welcome to FundBridge. Let's get started!",
       })
-      router.push(getRedirectForRole(data.role))
+      router.push(getRedirectForRole(data.user.role))
     } catch {
       toast.error('An error occurred', { description: 'Please try again.' })
     } finally {
