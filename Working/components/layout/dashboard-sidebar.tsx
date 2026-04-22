@@ -13,7 +13,6 @@ import {
   BarChart3,
   FileText,
   Users,
-  Mail,
   Folders,
   Menu,
   ChevronRight,
@@ -60,8 +59,6 @@ const fundRaiserNavItems: NavItem[] = [
   { href: "/dashboard/fund-raiser", label: "Dashboard", icon: <LayoutDashboard className="h-5 w-5" /> },
   { href: "/dashboard/fund-raiser/campaigns/new", label: "Create Campaign", icon: <PlusCircle className="h-5 w-5" /> },
   { href: "/dashboard/fund-raiser/campaigns", label: "My Campaigns", icon: <FileText className="h-5 w-5" /> },
-  { href: "/dashboard/fund-raiser/donors", label: "Donors", icon: <Users className="h-5 w-5" /> },
-  { href: "/dashboard/fund-raiser/emails", label: "Emails", icon: <Mail className="h-5 w-5" /> },
   { href: "/dashboard/fund-raiser/analytics", label: "Analytics", icon: <BarChart3 className="h-5 w-5" /> },
   { href: "/dashboard/fund-raiser/history", label: "Completed History", icon: <History className="h-5 w-5" /> },
 ]

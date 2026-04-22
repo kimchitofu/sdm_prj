@@ -120,7 +120,6 @@ export class EmailGenerationRequest {
   }
 
   toPayload(): EmailGenerationRequestPayload {
-    // toPayload() converts the EmailGenerationRequest object into a plain request body that can be sent to the AI generation route
     return { ...this.props }
   }
 
