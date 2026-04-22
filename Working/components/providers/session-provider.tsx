@@ -1,30 +1,45 @@
 'use client'
 
 import React, { createContext, useContext, useEffect, useState } from 'react'
-import { onAuthStateChanged, type User } from 'firebase/auth'
-import { auth } from '@/lib/firebase'
+import { getCurrentUser, saveCurrentUser, type StoredUser } from '@/lib/utils'
 
 type AuthContextValue = {
-  user: User | null
+  user: StoredUser | null
   loading: boolean
+  setUser: (user: StoredUser | null) => void
 }
 
-const AuthContext = createContext<AuthContextValue>({ user: null, loading: true })
+const AuthContext = createContext<AuthContextValue>({
+  user: null,
+  loading: true,
+  setUser: () => {},
+})
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setUserState] = useState<StoredUser | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u)
-      setLoading(false)
-    })
-    return () => unsubscribe()
+    const stored = getCurrentUser()
+    setUserState(stored)
+    setLoading(false)
   }, [])
 
+  const setUser = (u: StoredUser | null) => {
+    if (u) {
+      saveCurrentUser(u)
+    } else {
+      try {
+        localStorage.removeItem('currentUser')
+      } catch {}
+    }
+    setUserState(u)
+  }
+
   return (
-    <AuthContext.Provider value={{ user, loading }}>{children}</AuthContext.Provider>
+    <AuthContext.Provider value={{ user, loading, setUser }}>
+      {children}
+    </AuthContext.Provider>
   )
 }
 

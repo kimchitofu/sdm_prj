@@ -1,278 +1,248 @@
-/*
-  Lightweight Firestore seed script for the Firebase emulator.
-  - Intended to be run against the emulator only.
-  - Requires firebase-admin package (install with `npm i firebase-admin`).
+/**
+ * Seed script for SQLite + Prisma.
+ * Run with: npm run seed
+ *
+ * Creates demo users, categories, campaigns, and donations.
+ * Passwords are hashed with bcryptjs.
+ */
 
-  Usage (from repo root):
+const { PrismaClient } = require('@prisma/client')
+const { PrismaBetterSqlite3 } = require('@prisma/adapter-better-sqlite3')
+const bcrypt = require('bcryptjs')
+const path = require('path')
 
-  # start the emulator first (see instructions)
-  # then run:
-  FIRESTORE_EMULATOR_HOST=localhost:8081 FIREBASE_AUTH_EMULATOR_HOST=localhost:9098 node Working/scripts/seed.js
+const dbPath = path.join(process.cwd(), 'prisma', 'dev.db')
+const adapter = new PrismaBetterSqlite3({ url: `file:${dbPath}` })
+const prisma = new PrismaClient({ adapter })
 
-  This script will create a small set of users, categories and one sample campaign.
-*/
+async function main() {
+  console.log('Seeding database...')
 
-const admin = require('firebase-admin')
+  // Clear existing data in dependency order
+  await prisma.donation.deleteMany()
+  await prisma.favourite.deleteMany()
+  await prisma.campaignUpdate.deleteMany()
+  await prisma.campaignReport.deleteMany()
+  await prisma.auditLog.deleteMany()
+  await prisma.campaign.deleteMany()
+  await prisma.category.deleteMany()
+  await prisma.user.deleteMany()
+  await prisma.emailTemplate.deleteMany()
+  await prisma.emailLog.deleteMany()
+  await prisma.emailAutomationRule.deleteMany()
 
-const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'demo-csit314'
+  // Users
+  const password = await bcrypt.hash('Demo1234', 10)
 
-// When running against the emulator no credentials are required.
-admin.initializeApp({ projectId })
-
-const db = admin.firestore()
-const auth = admin.auth()
-
-async function seed() {
-  console.log('Seeding Firestore emulator...')
-
-  // Users from mock data
-  const users = [
-    {
-      id: 'user-1',
-      email: 'fundraiser@example.com',
-      displayName: 'Fundraiser Demo',
-      firstName: 'Fundraiser',
-      lastName: 'Demo',
-      role: 'fund_raiser',
-      phone: '+1 (555) 123-4567',
-      location: 'San Francisco, CA',
-      avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&h=150&fit=crop&crop=face',
-      bio: 'Passionate about making a difference in my community through fundraising.',
-      isVerified: true,
-      status: 'active',
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    },
-    {
-      id: 'user-2',
-      email: 'donee@example.com',
-      displayName: 'Donee Demo',
-      firstName: 'Donee',
-      lastName: 'Demo',
-      role: 'donee',
-      phone: '+1 (555) 234-5678',
-      location: 'New York, NY',
-      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face',
-      bio: 'Believer in the power of collective giving.',
-      isVerified: true,
-      status: 'active',
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    },
-    {
-      id: 'user-3',
-      email: 'emily.davis@email.com',
-      displayName: 'Emily Davis',
-      firstName: 'Emily',
-      lastName: 'Davis',
-      role: 'fund_raiser',
-      phone: '+1 (555) 345-6789',
-      location: 'Chicago, IL',
-      avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face',
-      bio: 'Nonprofit organizer with 10 years of experience.',
-      isVerified: true,
-      status: 'active',
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    },
-    {
-      id: 'user-4',
-      email: 'admin@fundbridge.com',
-      displayName: 'Admin User',
+  const admin = await prisma.user.create({
+    data: {
+      email: 'admin@example.com',
+      password,
       firstName: 'Admin',
       lastName: 'User',
       role: 'admin',
-      location: 'Remote',
       isVerified: true,
-      status: 'active',
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
     },
-    {
-      id: 'user-super-admin',
-      email: 'admin@gmail.com',
-      displayName: 'Super Admin',
-      firstName: 'Super',
-      lastName: 'Admin',
-      role: 'user_admin',
-      location: 'Remote',
-      isVerified: true,
-      status: 'active',
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    },
-    {
-      id: 'user-5',
-      email: 'platform@fundbridge.com',
-      displayName: 'Platform Manager',
+  })
+
+  const platformManager = await prisma.user.create({
+    data: {
+      email: 'platform@example.com',
+      password,
       firstName: 'Platform',
       lastName: 'Manager',
       role: 'platform_manager',
-      location: 'Remote',
       isVerified: true,
-      status: 'active',
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
     },
-    {
-      id: 'user-6',
-      email: 'james.wilson@email.com',
-      displayName: 'James Wilson',
-      firstName: 'James',
-      lastName: 'Wilson',
-      role: 'donee',
-      phone: '+1 (555) 456-7890',
-      location: 'Los Angeles, CA',
-      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop&crop=face',
-      bio: 'Tech professional who loves supporting education initiatives.',
-      isVerified: true,
-      status: 'active',
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    },
-    {
-      id: 'user-7',
-      email: 'lisa.martinez@email.com',
-      displayName: 'Lisa Martinez',
-      firstName: 'Lisa',
-      lastName: 'Martinez',
-      role: 'fund_raiser',
-      phone: '+1 (555) 567-8901',
-      location: 'Miami, FL',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&h=150&fit=crop&crop=face',
-      bio: 'Animal rescue volunteer and advocate.',
-      isVerified: true,
-      status: 'active',
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    },
-    {
-      id: 'user-8',
-      email: 'david.brown@email.com',
-      displayName: 'David Brown',
-      firstName: 'David',
-      lastName: 'Brown',
-      role: 'donee',
-      location: 'Seattle, WA',
-      avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
-      isVerified: false,
-      status: 'active',
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    },
-    {
-      id: 'user-9',
-      email: 'suspended.user@email.com',
-      displayName: 'Suspended User',
-      firstName: 'Suspended',
-      lastName: 'User',
-      role: 'fund_raiser',
-      location: 'Unknown',
-      isVerified: false,
-      status: 'suspended',
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    },
-  ]
+  })
 
-  for (const u of users) {
-    await db.collection('users').doc(u.id).set(u)
-    console.log('Wrote user', u.id)
+  const fundraiser1 = await prisma.user.create({
+    data: {
+      email: 'fundraiser@example.com',
+      password,
+      firstName: 'Kim',
+      lastName: 'Lee',
+      role: 'fund_raiser',
+      isVerified: true,
+    },
+  })
 
-    // Create Auth user
-    try {
-      await auth.createUser({
-        uid: u.id,
-        email: u.email,
-        password: 'demo123',
-        displayName: u.displayName,
-      })
-      console.log('Created auth user', u.id)
-    } catch (error) {
-      if (error.code === 'auth/uid-already-exists') {
-        console.log('Auth user already exists', u.id)
-      } else {
-        console.error('Error creating auth user', u.id, error)
-      }
-    }
-  }
+  const fundraiser2 = await prisma.user.create({
+    data: {
+      email: 'fundraiser2@example.com',
+      password,
+      firstName: 'Alex',
+      lastName: 'Wong',
+      role: 'fund_raiser',
+      isVerified: true,
+    },
+  })
+
+  const donee1 = await prisma.user.create({
+    data: {
+      email: 'donee@example.com',
+      password,
+      firstName: 'Ivan',
+      lastName: 'Tan',
+      role: 'donee',
+      isVerified: true,
+    },
+  })
+
+  const donee2 = await prisma.user.create({
+    data: {
+      email: 'donee2@example.com',
+      password,
+      firstName: 'Sarah',
+      lastName: 'Lim',
+      role: 'donee',
+    },
+  })
+
+  console.log('Users created')
 
   // Categories
-  const categories = [
-    { id: 'cat-1', name: 'Medical & Health', description: 'Medical and health related causes', color: '#ef4444', isActive: true, createdAt: admin.firestore.FieldValue.serverTimestamp() },
-    { id: 'cat-2', name: 'Education', description: 'Scholarships and education', color: '#3b82f6', isActive: true, createdAt: admin.firestore.FieldValue.serverTimestamp() },
-  ]
+  await Promise.all([
+    prisma.category.create({ data: { name: 'Medical & Health', description: 'Medical expenses and healthcare', icon: 'Heart', color: '#ef4444' } }),
+    prisma.category.create({ data: { name: 'Education', description: 'Schools, scholarships, and learning', icon: 'BookOpen', color: '#3b82f6' } }),
+    prisma.category.create({ data: { name: 'Emergency Relief', description: 'Disaster and emergency aid', icon: 'AlertTriangle', color: '#f97316' } }),
+    prisma.category.create({ data: { name: 'Community', description: 'Local community projects', icon: 'Users', color: '#22c55e' } }),
+    prisma.category.create({ data: { name: 'Environment', description: 'Conservation and climate', icon: 'Leaf', color: '#10b981' } }),
+  ])
 
-  for (const c of categories) {
-    await db.collection('categories').doc(c.id).set(c)
-    console.log('Wrote category', c.id)
-  }
+  console.log('Categories created')
 
-  // Sample campaign
-  const campaign = {
-    id: 'camp-demo-1',
-    title: 'Sample Campaign',
-    summary: 'A sample campaign created by the seed script',
-    description: 'This is a demo campaign',
-    category: 'Medical & Health',
-    serviceType: 'medical',
-    status: 'active',
-    targetAmount: 10000,
-    raisedAmount: 2500,
-    donorCount: 12,
-    views: 120,
-    favouriteCount: 5,
-    startDate: new Date().toISOString(),
-    endDate: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString(),
-    organiser: { id: 'user-1', name: 'Sarah Chen' },
-    beneficiary: { name: 'Beneficiary' },
-    coverImage: '',
-    gallery: [],
-    updates: [],
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-  }
+  // Campaigns
+  const today = new Date()
+  const endDate = new Date(today)
+  endDate.setMonth(endDate.getMonth() + 3)
+  const startStr = today.toISOString().split('T')[0]
+  const endStr = endDate.toISOString().split('T')[0]
 
-  await db.collection('campaigns').doc(campaign.id).set(campaign)
-  console.log('Wrote campaign', campaign.id)
+  const campaign1 = await prisma.campaign.create({
+    data: {
+      title: "Help Fund Jake's Cancer Treatment",
+      summary: 'Jake needs urgent treatment for stage 3 lymphoma.',
+      description: 'Jake is a 34-year-old father of two who was recently diagnosed with stage 3 lymphoma. His treatment plan requires chemotherapy sessions over the next 6 months. Any contribution helps.',
+      category: 'Medical & Health',
+      serviceType: 'medical',
+      status: 'active',
+      targetAmount: 50000,
+      raisedAmount: 23400,
+      donorCount: 47,
+      views: 1203,
+      favouriteCount: 31,
+      startDate: startStr,
+      endDate: endStr,
+      coverImage: 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=800',
+      beneficiaryName: 'Jake Morrison',
+      beneficiaryRelationship: 'Self',
+      beneficiaryDescription: 'Father of two undergoing cancer treatment',
+      organiserId: fundraiser1.id,
+    },
+  })
+
+  const campaign2 = await prisma.campaign.create({
+    data: {
+      title: 'Scholarships for Underprivileged Students',
+      summary: 'Providing university scholarships to 10 students in need.',
+      description: 'Ten bright students from low-income families have been accepted into university but cannot afford tuition. This fund will cover their first year of study.',
+      category: 'Education',
+      serviceType: 'education',
+      status: 'active',
+      targetAmount: 30000,
+      raisedAmount: 18750,
+      donorCount: 89,
+      views: 2450,
+      favouriteCount: 64,
+      startDate: startStr,
+      endDate: endStr,
+      coverImage: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=800',
+      beneficiaryName: 'Student Scholarship Fund',
+      beneficiaryDescription: '10 university students from low-income families',
+      organiserId: fundraiser2.id,
+    },
+  })
+
+  const campaign3 = await prisma.campaign.create({
+    data: {
+      title: 'Flood Relief for Affected Families',
+      summary: 'Urgent aid for 200 families displaced by recent flooding.',
+      description: 'Recent flooding has displaced over 200 families in the eastern district. Funds will provide emergency shelter, food, and clothing for 3 months.',
+      category: 'Emergency Relief',
+      serviceType: 'emergency',
+      status: 'active',
+      targetAmount: 80000,
+      raisedAmount: 61200,
+      donorCount: 312,
+      views: 8900,
+      favouriteCount: 198,
+      startDate: startStr,
+      endDate: endStr,
+      coverImage: 'https://images.unsplash.com/photo-1547683905-f686c993aae5?w=800',
+      beneficiaryName: 'Eastern District Flood Victims',
+      beneficiaryDescription: '200+ displaced families',
+      organiserId: fundraiser1.id,
+    },
+  })
+
+  console.log('Campaigns created')
 
   // Donations
-  const donations = [
-    {
-      id: 'donation-1',
-      userId: 'user-2',
-      campaignId: 'camp-demo-1',
-      amount: 500,
-      message: 'Keep up the great work!',
-      isAnonymous: false,
-      status: 'completed',
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    },
-    {
-      id: 'donation-2',
-      userId: 'user-2',
-      campaignId: 'camp-demo-1',
-      amount: 1000,
-      message: 'Happy to help',
-      isAnonymous: false,
-      status: 'completed',
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    },
-  ]
+  await prisma.donation.createMany({
+    data: [
+      { campaignId: campaign1.id, donorId: donee1.id, donorName: 'Ivan Tan', donorEmail: 'donee@example.com', amount: 500, status: 'completed', message: 'Stay strong Jake!' },
+      { campaignId: campaign1.id, donorId: donee2.id, donorName: 'Sarah Lim', donorEmail: 'donee2@example.com', amount: 200, status: 'completed' },
+      { campaignId: campaign1.id, donorName: 'Anonymous', isAnonymous: true, amount: 1000, status: 'completed' },
+      { campaignId: campaign2.id, donorId: donee1.id, donorName: 'Ivan Tan', donorEmail: 'donee@example.com', amount: 300, status: 'completed', message: 'Education is the future!' },
+      { campaignId: campaign2.id, donorId: donee2.id, donorName: 'Sarah Lim', donorEmail: 'donee2@example.com', amount: 150, status: 'completed' },
+      { campaignId: campaign3.id, donorId: donee1.id, donorName: 'Ivan Tan', donorEmail: 'donee@example.com', amount: 250, status: 'completed', message: 'Sending support.' },
+      { campaignId: campaign3.id, donorName: 'Anonymous', isAnonymous: true, amount: 2000, status: 'completed' },
+    ],
+  })
 
-  for (const d of donations) {
-    await db.collection('donations').doc(d.id).set(d)
-    console.log('Wrote donation', d.id)
-  }
+  // Campaign updates
+  await prisma.campaignUpdate.createMany({
+    data: [
+      { campaignId: campaign1.id, title: 'Treatment started', content: 'Jake has started his first round of chemotherapy. Thank you for your support!' },
+      { campaignId: campaign2.id, title: 'Students selected', content: 'We have confirmed all 10 scholarship recipients. Letters have been sent!' },
+      { campaignId: campaign3.id, title: 'Shelters deployed', content: '150 temporary shelters have been set up. Food distribution begins tomorrow.' },
+    ],
+  })
 
   // Favourites
-  const favourites = [
-    {
-      id: 'fav-1',
-      userId: 'user-2',
-      campaignId: 'camp-demo-1',
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    },
-  ]
+  await prisma.favourite.createMany({
+    data: [
+      { userId: donee1.id, campaignId: campaign1.id },
+      { userId: donee1.id, campaignId: campaign2.id },
+      { userId: donee2.id, campaignId: campaign3.id },
+    ],
+  })
 
-  for (const f of favourites) {
-    await db.collection('favourites').doc(f.id).set(f)
-    console.log('Wrote favourite', f.id)
-  }
+  // Email automation rules
+  await prisma.emailAutomationRule.createMany({
+    data: [
+      { name: 'Thank You Email', triggerType: 'donation_received', isActive: true, subject: 'Thank you for your donation!', body: 'Dear {{recipientLabel}}, thank you for donating to {{campaignTitle}}.' },
+      { name: 'Milestone 50%', triggerType: 'milestone_50', isActive: true, subject: 'Halfway there!', body: 'Dear {{recipientLabel}}, {{campaignTitle}} has reached 50% of its goal!' },
+      { name: 'Campaign Update', triggerType: 'campaign_update', isActive: true, subject: 'New update from {{campaignTitle}}', body: 'Dear {{recipientLabel}}, there is a new update on {{campaignTitle}}.' },
+    ],
+  })
 
-  console.log('Seeding complete.')
+  console.log('Seed complete.')
+  console.log('\nDemo accounts (password: Demo1234):')
+  console.log('  admin@example.com         -> admin')
+  console.log('  platform@example.com      -> platform_manager')
+  console.log('  fundraiser@example.com    -> fund_raiser')
+  console.log('  fundraiser2@example.com   -> fund_raiser')
+  console.log('  donee@example.com         -> donee')
+  console.log('  donee2@example.com        -> donee')
 }
 
-seed().catch((err) => {
-  console.error('Seed failed', err)
-  process.exit(1)
-})
+main()
+  .catch((e) => {
+    console.error(e)
+    process.exit(1)
+  })
+  .finally(async () => {
+    await prisma.$disconnect()
+  })

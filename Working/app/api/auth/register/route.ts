@@ -1,10 +1,34 @@
 import { NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
+import bcrypt from 'bcryptjs'
 
-// This server-side registration endpoint has been removed as part of the
-// migration to Firebase Authentication + Firestore (client-side).
-// Keep a minimal handler that returns 410 Gone so that any unexpected
-// server requests get a clear response instead of runtime errors.
+export async function POST(request: Request) {
+  try {
+    const { email, password, firstName, lastName, role } = await request.json()
 
-export async function POST() {
-  return NextResponse.json({ error: 'Endpoint removed. Use Firebase Auth on client.' }, { status: 410 })
+    if (!email || !password || !firstName || !lastName) {
+      return NextResponse.json({ error: 'All fields are required' }, { status: 400 })
+    }
+
+    const existing = await prisma.user.findUnique({ where: { email } })
+    if (existing) {
+      return NextResponse.json({ error: 'Email already in use' }, { status: 409 })
+    }
+
+    const hashed = await bcrypt.hash(password, 10)
+    const user = await prisma.user.create({
+      data: {
+        email,
+        password: hashed,
+        firstName,
+        lastName,
+        role: role || 'donee',
+      },
+    })
+
+    const { password: _, ...safeUser } = user
+    return NextResponse.json(safeUser, { status: 201 })
+  } catch {
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
 }

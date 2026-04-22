@@ -1,9 +1,15 @@
-// Prisma client removed for Firebase/Firestore migration.
-// This file remains as a stub to avoid build errors from accidental imports.
-// If any code tries to use `prisma`, it will throw to make the issue obvious.
+import { PrismaClient } from '@prisma/client'
+import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3'
+import path from 'path'
 
-export const prisma = new Proxy({}, {
-  get() {
-    throw new Error('Prisma has been removed in this repository. Use Firestore client instead.')
-  }
-}) as any
+const globalForPrisma = globalThis as unknown as { prisma: PrismaClient }
+
+function createPrismaClient() {
+  const dbPath = path.join(process.cwd(), 'prisma', 'dev.db')
+  const adapter = new PrismaBetterSqlite3({ url: `file:${dbPath}` })
+  return new PrismaClient({ adapter })
+}
+
+export const prisma = globalForPrisma.prisma ?? createPrismaClient()
+
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma

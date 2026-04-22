@@ -3,8 +3,7 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/components/providers/session-provider'
-import { doc, getDoc } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
+import { getRedirectForRole } from '@/lib/user'
 
 export default function DashboardRedirect() {
   const { user, loading } = useAuth()
@@ -18,35 +17,7 @@ export default function DashboardRedirect() {
       return
     }
 
-    async function resolveRole() {
-      try {
-        const userDoc = await getDoc(doc(db, 'users', user.uid))
-        const data = userDoc.exists() ? userDoc.data() : null
-        const role = (data?.role || 'donee').toString().toUpperCase()
-
-        switch (role) {
-          case 'ADMIN':
-            router.push('/dashboard/admin/users')
-            break
-          case 'PLATFORM_MANAGER':
-            router.push('/dashboard/platform')
-            break
-          case 'FUND_RAISER':
-          case 'FUNDRAISER':
-            router.push('/dashboard/fund-raiser')
-            break
-          case 'DONEE':
-          default:
-            router.push('/dashboard/donee')
-            break
-        }
-      } catch (e) {
-        // Fallback: don't redirect back to this same page (would cause loop)
-        router.push('/auth/sign-in')
-      }
-    }
-
-    void resolveRole()
+    router.push(getRedirectForRole(user.role))
   }, [user, loading, router])
 
   return (

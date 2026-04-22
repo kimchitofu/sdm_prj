@@ -1,6 +1,3 @@
-import { doc, getDoc } from 'firebase/firestore'
-import { db } from './firebase'
-
 export type UserRole = 'donee' | 'fund_raiser' | 'admin' | 'platform_manager' | string
 
 export type UserProfile = {
@@ -9,19 +6,6 @@ export type UserProfile = {
   email?: string
   role?: UserRole
   [key: string]: any
-}
-
-export async function getUserProfile(uid: string): Promise<UserProfile | null> {
-  if (!uid) return null
-  try {
-    const ref = doc(db, 'users', uid)
-    const snap = await getDoc(ref)
-    if (!snap.exists()) return null
-    return snap.data() as UserProfile
-  } catch (err) {
-    // swallow here; caller can handle null
-    return null
-  }
 }
 
 export function getRedirectForRole(role?: UserRole) {
@@ -39,4 +23,4 @@ export function getRedirectForRole(role?: UserRole) {
   }
 }
 
-export default { getUserProfile, getRedirectForRole }
+export default { getRedirectForRole }

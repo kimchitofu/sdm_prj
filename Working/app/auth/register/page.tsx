@@ -4,10 +4,8 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
-import { createUserWithEmailAndPassword } from 'firebase/auth'
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore'
-import { auth, db } from '@/lib/firebase'
 import { getRedirectForRole } from '@/lib/user'
+import { useAuth } from '@/components/providers/session-provider'
 import { Eye, EyeOff, Loader2, Heart, TrendingUp, Check } from 'lucide-react'
 import { Logo } from '@/components/brand/logo'
 import { Button } from '@/components/ui/button'
@@ -15,7 +13,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { cn, getRegisteredUsers, saveRegisteredUsers, saveCurrentUser } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 
 type UserRole = 'donee' | 'fund_raiser'
@@ -51,7 +49,8 @@ function RegisterForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const defaultRole = searchParams.get('role') as UserRole | null
-  
+  const { setUser } = useAuth()
+
   const [step, setStep] = useState<'role' | 'details'>(defaultRole ? 'details' : 'role')
   const [selectedRole, setSelectedRole] = useState<UserRole | null>(defaultRole)
   const [showPassword, setShowPassword] = useState(false)
@@ -68,21 +67,16 @@ function RegisterForm() {
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
-    
-    if (!formData.firstName.trim()) {
-      newErrors.firstName = 'First name is required'
-    }
-    
-    if (!formData.lastName.trim()) {
-      newErrors.lastName = 'Last name is required'
-    }
-    
+
+    if (!formData.firstName.trim()) newErrors.firstName = 'First name is required'
+    if (!formData.lastName.trim()) newErrors.lastName = 'Last name is required'
+
     if (!formData.email) {
       newErrors.email = 'Email is required'
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = 'Please enter a valid email'
     }
-    
+
     if (!formData.password) {
       newErrors.password = 'Password is required'
     } else if (formData.password.length < 8) {
@@ -90,15 +84,13 @@ function RegisterForm() {
     } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)) {
       newErrors.password = 'Password must include uppercase, lowercase, and number'
     }
-    
+
     if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = 'Passwords do not match'
     }
-    
-    if (!formData.agreeToTerms) {
-      newErrors.agreeToTerms = 'You must agree to the terms'
-    }
-    
+
+    if (!formData.agreeToTerms) newErrors.agreeToTerms = 'You must agree to the terms'
+
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -116,34 +108,42 @@ function RegisterForm() {
     setIsLoading(true)
 
     try {
-      // Create user with Firebase Authentication
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        formData.email,
-        formData.password
-      )
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          role: selectedRole ?? 'donee',
+        }),
+      })
 
-      const user = userCredential.user
+      const data = await res.json()
 
-      // Store user profile in Firestore
-      const roleToStore = selectedRole ?? 'donee'
-      await setDoc(doc(db, 'users', user.uid), {
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        email: formData.email,
-        role: roleToStore,
-        createdAt: serverTimestamp(),
+      if (!res.ok) {
+        toast.error('Registration failed', { description: data.error || 'Please try again.' })
+        return
+      }
+
+      setUser({
+        id: data.id,
+        email: data.email,
+        displayName: `${data.firstName} ${data.lastName}`,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        role: data.role,
+        isVerified: data.isVerified,
+        status: data.status,
       })
 
       toast.success('Account created successfully!', {
         description: "Welcome to FundBridge. Let's get started!",
       })
-      const redirect = getRedirectForRole(roleToStore)
-      router.push(redirect)
-    } catch (error) {
-      toast.error('An error occurred', {
-        description: 'Please try again.',
-      })
+      router.push(getRedirectForRole(data.role))
+    } catch {
+      toast.error('An error occurred', { description: 'Please try again.' })
     } finally {
       setIsLoading(false)
     }
@@ -155,38 +155,28 @@ function RegisterForm() {
       <div className="hidden w-1/2 bg-gradient-to-br from-primary via-primary to-primary/80 lg:block">
         <div className="flex h-full flex-col justify-between p-12">
           <Logo className="text-primary-foreground" />
-          
+
           <div className="max-w-md">
             <h1 className="mb-4 text-4xl font-bold text-primary-foreground">
               Join Our Community
             </h1>
             <p className="text-lg text-primary-foreground/80">
-              Create an account to start making a difference. Whether you want to 
+              Create an account to start making a difference. Whether you want to
               raise funds or support causes, FundBridge connects hearts with hope.
             </p>
-            
+
             <div className="mt-8 space-y-4">
-              <div className="flex items-center gap-3 text-primary-foreground/80">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-foreground/20">
-                  <Check className="h-4 w-4" />
+              {['Free to create an account', 'Secure and transparent platform', '24/7 support available'].map((text) => (
+                <div key={text} className="flex items-center gap-3 text-primary-foreground/80">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-foreground/20">
+                    <Check className="h-4 w-4" />
+                  </div>
+                  <span>{text}</span>
                 </div>
-                <span>Free to create an account</span>
-              </div>
-              <div className="flex items-center gap-3 text-primary-foreground/80">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-foreground/20">
-                  <Check className="h-4 w-4" />
-                </div>
-                <span>Secure and transparent platform</span>
-              </div>
-              <div className="flex items-center gap-3 text-primary-foreground/80">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-foreground/20">
-                  <Check className="h-4 w-4" />
-                </div>
-                <span>24/7 support available</span>
-              </div>
+              ))}
             </div>
           </div>
-          
+
           <div className="text-sm text-primary-foreground/60">
             &copy; {new Date().getFullYear()} FundBridge. All rights reserved.
           </div>
@@ -242,8 +232,8 @@ function RegisterForm() {
                     </CardHeader>
                     <CardContent>
                       <ul className="space-y-2">
-                        {option.benefits.map((benefit, index) => (
-                          <li key={index} className="flex items-center gap-2 text-sm text-muted-foreground">
+                        {option.benefits.map((benefit) => (
+                          <li key={benefit} className="flex items-center gap-2 text-sm text-muted-foreground">
                             <Check className="h-4 w-4 text-primary" />
                             {benefit}
                           </li>
@@ -282,7 +272,7 @@ function RegisterForm() {
                   </span>
                 </CardDescription>
               </CardHeader>
-              
+
               <CardContent className="px-0 lg:px-6">
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="grid gap-4 sm:grid-cols-2">

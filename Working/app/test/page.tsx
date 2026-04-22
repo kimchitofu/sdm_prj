@@ -1,38 +1,35 @@
 "use client";
 
-import { auth } from "@/lib/firebase";
-import { createUserWithEmailAndPassword } from "firebase/auth";
-
-// 👉 ADD THESE
-import { ref, set } from "firebase/database";
-import { db } from "@/lib/firebase";
-
 export default function TestPage() {
-  const testFirebase = async () => {
+  const testConnection = async () => {
     try {
-      // 1️⃣ Test Auth
-      const user = await createUserWithEmailAndPassword(
-        auth,
-        "testuser999@gmail.com",
-        "123456"
-      );
-
-      // 2️⃣ Test Database (THIS IS NEW)
-      await set(ref(db, "test/message"), {
-        text: "Hello Firebase DB"
-      });
-
-      alert("Firebase Auth + DB connected ✅");
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: 'testuser999@example.com',
+          password: 'Test1234',
+          firstName: 'Test',
+          lastName: 'User',
+          role: 'donee',
+        }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        alert(`SQLite + Prisma connected. User created: ${data.email}`)
+      } else {
+        alert(`Response: ${data.error}`)
+      }
     } catch (error: any) {
-      alert(error.message);
-      console.error(error);
+      alert(error.message)
+      console.error(error)
     }
   };
 
   return (
     <div>
-      <h1>Firebase Test</h1>
-      <button onClick={testFirebase}>Test Firebase</button>
+      <h1>SQLite + Prisma Test</h1>
+      <button onClick={testConnection}>Test DB Connection</button>
     </div>
   );
 }

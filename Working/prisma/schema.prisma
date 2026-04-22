@@ -1,28 +1,177 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "mongodb"
+  provider = "sqlite"
 }
 
 model User {
-  id        String   @id @default(cuid()) @map("_id")
-  email     String   @unique
-  password  String
-  firstName String
-  lastName  String
-  role      Role     @default(DONEE)
+  id          String    @id @default(cuid())
+  email       String    @unique
+  password    String
+  firstName   String
+  lastName    String
+  role        String    @default("donee")
+  phone       String?
+  location    String?
+  avatar      String?
+  bio         String?
+  isVerified  Boolean   @default(false)
+  status      String    @default("active")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  lastLoginAt DateTime?
+
+  campaigns   Campaign[]
+  donations   Donation[]
+  favourites  Favourite[]
+  reports     CampaignReport[]
+  auditLogs   AuditLog[]
+}
+
+model Campaign {
+  id                      String    @id @default(cuid())
+  title                   String
+  summary                 String
+  description             String
+  category                String
+  serviceType             String
+  status                  String    @default("draft")
+  targetAmount            Float
+  raisedAmount            Float     @default(0)
+  donorCount              Int       @default(0)
+  views                   Int       @default(0)
+  favouriteCount          Int       @default(0)
+  startDate               String
+  endDate                 String
+  coverImage              String    @default("")
+  gallery                 String    @default("[]")
+  location                String?
+  tags                    String    @default("[]")
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  completedAt             DateTime?
+  beneficiaryName         String
+  beneficiaryRelationship String?
+  beneficiaryDescription  String?
+
+  organiserId String
+  organiser   User   @relation(fields: [organiserId], references: [id])
+
+  donations  Donation[]
+  favourites Favourite[]
+  updates    CampaignUpdate[]
+  reports    CampaignReport[]
+}
+
+model Donation {
+  id          String   @id @default(cuid())
+  amount      Float
+  message     String?
+  isAnonymous Boolean  @default(false)
+  status      String   @default("completed")
+  donorName   String
+  donorEmail  String?
+  createdAt   DateTime @default(now())
+
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id])
+  donorId    String?
+  donor      User?    @relation(fields: [donorId], references: [id])
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String
+  icon        String
+  color       String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model Favourite {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id])
+
+  @@unique([userId, campaignId])
+}
+
+model CampaignUpdate {
+  id         String   @id @default(cuid())
+  title      String
+  content    String
+  createdAt  DateTime @default(now())
+
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id])
+}
+
+model CampaignReport {
+  id           String    @id @default(cuid())
+  reason       String
+  description  String
+  status       String    @default("pending")
+  resolvedBy   String?
+  resolvedAt   DateTime?
+  resolution   String?
+  createdAt    DateTime  @default(now())
+
+  campaignId   String
+  campaign     Campaign  @relation(fields: [campaignId], references: [id])
+  reportedById String
+  reportedBy   User      @relation(fields: [reportedById], references: [id])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  targetId    String?
+  targetType  String?
+  action      String
+  description String
+  performedBy String
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+}
+
+model EmailTemplate {
+  id        String   @id @default(cuid())
+  name      String
+  subject   String
+  body      String
+  variables String   @default("[]")
+  isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
-enum Role {
-  ADMIN
-  FUNDRAISER
-  DONEE
-  PLATFORM
+model EmailLog {
+  id             String   @id @default(cuid())
+  templateId     String?
+  recipientEmail String
+  subject        String
+  body           String
+  status         String   @default("sent")
+  campaignId     String?
+  sentAt         DateTime @default(now())
+}
+
+model EmailAutomationRule {
+  id          String   @id @default(cuid())
+  name        String
+  triggerType String
+  isActive    Boolean  @default(true)
+  subject     String
+  body        String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

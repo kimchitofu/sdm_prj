@@ -3,9 +3,9 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { signInWithEmailAndPassword } from 'firebase/auth'
-import { auth, createTestUser } from '@/lib/firebase'
-import { getUserProfile, getRedirectForRole } from '@/lib/user'
+import { getRedirectForRole } from '@/lib/user'
+import { saveCurrentUser } from '@/lib/utils'
+import { useAuth } from '@/components/providers/session-provider'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import { Logo } from '@/components/brand/logo'
 import { Button } from '@/components/ui/button'
@@ -17,6 +17,7 @@ import { toast } from 'sonner'
 
 export default function SignInPage() {
   const router = useRouter()
+  const { setUser } = useAuth()
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [formData, setFormData] = useState({
@@ -28,19 +29,19 @@ export default function SignInPage() {
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
-    
+
     if (!formData.email) {
       newErrors.email = 'Email is required'
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = 'Please enter a valid email'
     }
-    
+
     if (!formData.password) {
       newErrors.password = 'Password is required'
     } else if (formData.password.length < 5) {
       newErrors.password = 'Password must be at least 5 characters'
     }
-    
+
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -53,19 +54,36 @@ export default function SignInPage() {
     setIsLoading(true)
 
     try {
-      await signInWithEmailAndPassword(auth, formData.email, formData.password)
-      toast.success('Welcome back!', {
-        description: 'You have successfully signed in.',
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: formData.email, password: formData.password }),
       })
-      // fetch user profile to determine role-based redirect
-      const uid = auth.currentUser?.uid
-      const profile = uid ? await getUserProfile(uid) : null
-      const redirect = getRedirectForRole(profile?.role)
-      router.push(redirect)
-    } catch (error) {
-      toast.error('An error occurred', {
-        description: 'Please try again.',
-      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        toast.error('Sign in failed', { description: data.error || 'Please try again.' })
+        return
+      }
+
+      const storedUser = {
+        id: data.id,
+        email: data.email,
+        displayName: `${data.firstName} ${data.lastName}`,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        role: data.role,
+        avatar: data.avatar ?? undefined,
+        isVerified: data.isVerified,
+        status: data.status,
+      }
+
+      setUser(storedUser)
+      toast.success('Welcome back!', { description: 'You have successfully signed in.' })
+      router.push(getRedirectForRole(data.role))
+    } catch {
+      toast.error('An error occurred', { description: 'Please try again.' })
     } finally {
       setIsLoading(false)
     }
@@ -80,22 +98,9 @@ export default function SignInPage() {
 
     const account = demoAccounts[role]
     if (account) {
-      setFormData({ ...formData, email: account.email, password: 'demo123' })
+      setFormData({ ...formData, email: account.email, password: 'Demo1234' })
       toast.success(`Demo: ${role.replace('_', ' ')} account`, {
         description: 'Click Sign In to continue with demo account.',
-      })
-    }
-  }
-
-  const handleCreateTestUser = async () => {
-    try {
-      await createTestUser()
-      toast.success('Test user created', {
-        description: 'admin@example.com / demo123',
-      })
-    } catch (error: any) {
-      toast.error('Failed to create user', {
-        description: error.message,
       })
     }
   }
@@ -106,17 +111,17 @@ export default function SignInPage() {
       <div className="hidden w-1/2 bg-gradient-to-br from-primary via-primary to-primary/80 lg:block">
         <div className="flex h-full flex-col justify-between p-12">
           <Logo className="text-primary-foreground" />
-          
+
           <div className="max-w-md">
             <h1 className="mb-4 text-4xl font-bold text-primary-foreground">
               Welcome Back
             </h1>
             <p className="text-lg text-primary-foreground/80">
-              Sign in to continue making a difference. Track your donations, 
+              Sign in to continue making a difference. Track your donations,
               manage campaigns, and connect with causes that matter.
             </p>
           </div>
-          
+
           <div className="text-sm text-primary-foreground/60">
             &copy; {new Date().getFullYear()} FundBridge. All rights reserved.
           </div>
@@ -137,7 +142,7 @@ export default function SignInPage() {
                 Enter your credentials to access your account
               </CardDescription>
             </CardHeader>
-            
+
             <CardContent className="px-0 lg:px-6">
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
@@ -263,17 +268,6 @@ export default function SignInPage() {
                     onClick={() => handleDemoLogin('admin')}
                   >
                     Admin Demo
-                  </Button>
-                </div>
-
-                <div className="mt-4">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={handleCreateTestUser}
-                    className="w-full"
-                  >
-                    Create Test User
                   </Button>
                 </div>
               </div>
