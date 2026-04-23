@@ -1,19 +1,15 @@
 /**
- * Seed script for SQLite + Prisma.
- * Run with: npm run seed
+ * Seed script for MySQL + Prisma.
+ * Run with: node scripts/seed.js
  *
- * Creates demo users, categories, campaigns, and donations.
- * Passwords are hashed with bcryptjs.
+ * Creates demo users, categories, campaigns, donations, favourites,
+ * campaign updates, and email automation rules.
  */
 
 const { PrismaClient } = require('@prisma/client')
-const { PrismaBetterSqlite3 } = require('@prisma/adapter-better-sqlite3')
 const bcrypt = require('bcryptjs')
-const path = require('path')
 
-const dbPath = path.join(process.cwd(), 'prisma', 'dev.db')
-const adapter = new PrismaBetterSqlite3({ url: `file:${dbPath}` })
-const prisma = new PrismaClient({ adapter })
+const prisma = new PrismaClient()
 
 async function main() {
   console.log('Seeding database...')
@@ -31,84 +27,103 @@ async function main() {
   await prisma.emailLog.deleteMany()
   await prisma.emailAutomationRule.deleteMany()
 
-  // Users
-  const password = await bcrypt.hash('Demo1234', 10)
+  // Passwords
+  const demoPassword = await bcrypt.hash('Demo1234', 10)
+  const adminPassword = await bcrypt.hash('Admin@1234', 10)
 
+  // Users
   const admin = await prisma.user.create({
     data: {
-      email: 'admin@example.com',
-      password,
+      email: 'admin@fundbridge.com',
+      password: adminPassword,
       firstName: 'Admin',
       lastName: 'User',
       role: 'admin',
       isVerified: true,
+      status: 'active',
+      location: 'Remote',
     },
   })
 
   const platformManager = await prisma.user.create({
     data: {
-      email: 'platform@example.com',
-      password,
+      email: 'platform@fundbridge.com',
+      password: demoPassword,
       firstName: 'Platform',
       lastName: 'Manager',
       role: 'platform_manager',
       isVerified: true,
+      status: 'active',
+      location: 'Remote',
     },
   })
 
   const fundraiser1 = await prisma.user.create({
     data: {
       email: 'fundraiser@example.com',
-      password,
+      password: demoPassword,
       firstName: 'Kim',
       lastName: 'Lee',
       role: 'fund_raiser',
       isVerified: true,
+      status: 'active',
+      location: 'Singapore',
+      bio: 'Community fundraiser focused on urgent care campaigns.',
     },
   })
 
   const fundraiser2 = await prisma.user.create({
     data: {
       email: 'fundraiser2@example.com',
-      password,
+      password: demoPassword,
       firstName: 'Alex',
       lastName: 'Wong',
       role: 'fund_raiser',
       isVerified: true,
+      status: 'active',
+      location: 'Singapore',
+      bio: 'Education and scholarship fundraiser.',
     },
   })
 
   const donee1 = await prisma.user.create({
     data: {
       email: 'donee@example.com',
-      password,
+      password: demoPassword,
       firstName: 'Ivan',
       lastName: 'Tan',
       role: 'donee',
       isVerified: true,
+      status: 'active',
+      location: 'Singapore',
     },
   })
 
   const donee2 = await prisma.user.create({
     data: {
       email: 'donee2@example.com',
-      password,
+      password: demoPassword,
       firstName: 'Sarah',
       lastName: 'Lim',
       role: 'donee',
+      isVerified: true,
+      status: 'active',
+      location: 'Singapore',
     },
   })
 
   console.log('Users created')
 
   // Categories
-  await Promise.all([
-    prisma.category.create({ data: { name: 'Medical & Health', description: 'Medical expenses and healthcare', icon: 'Heart', color: '#ef4444' } }),
-    prisma.category.create({ data: { name: 'Education', description: 'Schools, scholarships, and learning', icon: 'BookOpen', color: '#3b82f6' } }),
-    prisma.category.create({ data: { name: 'Emergency Relief', description: 'Disaster and emergency aid', icon: 'AlertTriangle', color: '#f97316' } }),
-    prisma.category.create({ data: { name: 'Community', description: 'Local community projects', icon: 'Users', color: '#22c55e' } }),
-    prisma.category.create({ data: { name: 'Environment', description: 'Conservation and climate', icon: 'Leaf', color: '#10b981' } }),
-  ])
+  await prisma.category.createMany({
+    data: [
+      { name: 'Medical & Health', description: 'Medical expenses and healthcare', icon: 'Heart', color: '#ef4444' },
+      { name: 'Education', description: 'Schools, scholarships, and learning', icon: 'BookOpen', color: '#3b82f6' },
+      { name: 'Emergency Relief', description: 'Disaster and emergency aid', icon: 'AlertTriangle', color: '#f97316' },
+      { name: 'Community', description: 'Local community projects', icon: 'Users', color: '#22c55e' },
+      { name: 'Environment', description: 'Conservation and climate', icon: 'Leaf', color: '#10b981' },
+    ],
+  })
 
   console.log('Categories created')
 
@@ -123,7 +138,8 @@ async function main() {
     data: {
       title: "Help Fund Jake's Cancer Treatment",
       summary: 'Jake needs urgent treatment for stage 3 lymphoma.',
-      description: 'Jake is a 34-year-old father of two who was recently diagnosed with stage 3 lymphoma. His treatment plan requires chemotherapy sessions over the next 6 months. Any contribution helps.',
+      description:
+        'Jake is a 34-year-old father of two who was recently diagnosed with stage 3 lymphoma. His treatment plan requires chemotherapy sessions over the next 6 months. Any contribution helps.',
       category: 'Medical & Health',
       serviceType: 'medical',
       status: 'active',
@@ -146,7 +162,8 @@ async function main() {
     data: {
       title: 'Scholarships for Underprivileged Students',
       summary: 'Providing university scholarships to 10 students in need.',
-      description: 'Ten bright students from low-income families have been accepted into university but cannot afford tuition. This fund will cover their first year of study.',
+      description:
+        'Ten bright students from low-income families have been accepted into university but cannot afford tuition. This fund will cover their first year of study.',
       category: 'Education',
       serviceType: 'education',
       status: 'active',
@@ -168,7 +185,8 @@ async function main() {
     data: {
       title: 'Flood Relief for Affected Families',
       summary: 'Urgent aid for 200 families displaced by recent flooding.',
-      description: 'Recent flooding has displaced over 200 families in the eastern district. Funds will provide emergency shelter, food, and clothing for 3 months.',
+      description:
+        'Recent flooding has displaced over 200 families in the eastern district. Funds will provide emergency shelter, food, and clothing for 3 months.',
       category: 'Emergency Relief',
       serviceType: 'emergency',
       status: 'active',
@@ -191,22 +209,84 @@ async function main() {
   // Donations
   await prisma.donation.createMany({
     data: [
-      { campaignId: campaign1.id, donorId: donee1.id, donorName: 'Ivan Tan', donorEmail: 'donee@example.com', amount: 500, status: 'completed', message: 'Stay strong Jake!' },
-      { campaignId: campaign1.id, donorId: donee2.id, donorName: 'Sarah Lim', donorEmail: 'donee2@example.com', amount: 200, status: 'completed' },
-      { campaignId: campaign1.id, donorName: 'Anonymous', isAnonymous: true, amount: 1000, status: 'completed' },
-      { campaignId: campaign2.id, donorId: donee1.id, donorName: 'Ivan Tan', donorEmail: 'donee@example.com', amount: 300, status: 'completed', message: 'Education is the future!' },
-      { campaignId: campaign2.id, donorId: donee2.id, donorName: 'Sarah Lim', donorEmail: 'donee2@example.com', amount: 150, status: 'completed' },
-      { campaignId: campaign3.id, donorId: donee1.id, donorName: 'Ivan Tan', donorEmail: 'donee@example.com', amount: 250, status: 'completed', message: 'Sending support.' },
-      { campaignId: campaign3.id, donorName: 'Anonymous', isAnonymous: true, amount: 2000, status: 'completed' },
+      {
+        campaignId: campaign1.id,
+        donorId: donee1.id,
+        donorName: 'Ivan Tan',
+        donorEmail: 'donee@example.com',
+        amount: 500,
+        status: 'completed',
+        message: 'Stay strong Jake!',
+      },
+      {
+        campaignId: campaign1.id,
+        donorId: donee2.id,
+        donorName: 'Sarah Lim',
+        donorEmail: 'donee2@example.com',
+        amount: 200,
+        status: 'completed',
+      },
+      {
+        campaignId: campaign1.id,
+        donorName: 'Anonymous',
+        isAnonymous: true,
+        amount: 1000,
+        status: 'completed',
+      },
+      {
+        campaignId: campaign2.id,
+        donorId: donee1.id,
+        donorName: 'Ivan Tan',
+        donorEmail: 'donee@example.com',
+        amount: 300,
+        status: 'completed',
+        message: 'Education is the future!',
+      },
+      {
+        campaignId: campaign2.id,
+        donorId: donee2.id,
+        donorName: 'Sarah Lim',
+        donorEmail: 'donee2@example.com',
+        amount: 150,
+        status: 'completed',
+      },
+      {
+        campaignId: campaign3.id,
+        donorId: donee1.id,
+        donorName: 'Ivan Tan',
+        donorEmail: 'donee@example.com',
+        amount: 250,
+        status: 'completed',
+        message: 'Sending support.',
+      },
+      {
+        campaignId: campaign3.id,
+        donorName: 'Anonymous',
+        isAnonymous: true,
+        amount: 2000,
+        status: 'completed',
+      },
     ],
   })
 
   // Campaign updates
   await prisma.campaignUpdate.createMany({
     data: [
-      { campaignId: campaign1.id, title: 'Treatment started', content: 'Jake has started his first round of chemotherapy. Thank you for your support!' },
-      { campaignId: campaign2.id, title: 'Students selected', content: 'We have confirmed all 10 scholarship recipients. Letters have been sent!' },
-      { campaignId: campaign3.id, title: 'Shelters deployed', content: '150 temporary shelters have been set up. Food distribution begins tomorrow.' },
+      {
+        campaignId: campaign1.id,
+        title: 'Treatment started',
+        content: 'Jake has started his first round of chemotherapy. Thank you for your support!',
+      },
+      {
+        campaignId: campaign2.id,
+        title: 'Students selected',
+        content: 'We have confirmed all 10 scholarship recipients. Letters have been sent!',
+      },
+      {
+        campaignId: campaign3.id,
+        title: 'Shelters deployed',
+        content: '150 temporary shelters have been set up. Food distribution begins tomorrow.',
+      },
     ],
   })
 
@@ -222,20 +302,45 @@ async function main() {
   // Email automation rules
   await prisma.emailAutomationRule.createMany({
     data: [
-      { name: 'Thank You Email', triggerType: 'donation_received', isActive: true, subject: 'Thank you for your donation!', body: 'Dear {{recipientLabel}}, thank you for donating to {{campaignTitle}}.' },
-      { name: 'Milestone 50%', triggerType: 'milestone_50', isActive: true, subject: 'Halfway there!', body: 'Dear {{recipientLabel}}, {{campaignTitle}} has reached 50% of its goal!' },
-      { name: 'Campaign Update', triggerType: 'campaign_update', isActive: true, subject: 'New update from {{campaignTitle}}', body: 'Dear {{recipientLabel}}, there is a new update on {{campaignTitle}}.' },
+      {
+        name: 'Thank You Email',
+        triggerType: 'donation_received',
+        isActive: true,
+        subject: 'Thank you for your donation!',
+        body: 'Dear {{recipientLabel}}, thank you for donating to {{campaignTitle}}.',
+      },
+      {
+        name: 'Milestone 50%',
+        triggerType: 'milestone_50',
+        isActive: true,
+        subject: 'Halfway there!',
+        body: 'Dear {{recipientLabel}}, {{campaignTitle}} has reached 50% of its goal!',
+      },
+      {
+        name: 'Campaign Update',
+        triggerType: 'campaign_update',
+        isActive: true,
+        subject: 'New update from {{campaignTitle}}',
+        body: 'Dear {{recipientLabel}}, there is a new update on {{campaignTitle}}.',
+      },
+      {
+        name: 'Fundraiser Coaching',
+        triggerType: 'fundraiser_coaching',
+        isActive: true,
+        subject: 'Tips to improve your campaign',
+        body: 'Hi {{recipientLabel}}, here are practical tips to strengthen {{campaignTitle}} and reach more donors.',
+      },
     ],
   })
 
   console.log('Seed complete.')
-  console.log('\nDemo accounts (password: Demo1234):')
-  console.log('  admin@example.com         -> admin')
-  console.log('  platform@example.com      -> platform_manager')
-  console.log('  fundraiser@example.com    -> fund_raiser')
-  console.log('  fundraiser2@example.com   -> fund_raiser')
-  console.log('  donee@example.com         -> donee')
-  console.log('  donee2@example.com        -> donee')
+  console.log('\nDemo accounts:')
+  console.log('  admin@fundbridge.com      -> admin (password: Admin@1234)')
+  console.log('  platform@fundbridge.com   -> platform_manager (password: Demo1234)')
+  console.log('  fundraiser@example.com    -> fund_raiser (password: Demo1234)')
+  console.log('  fundraiser2@example.com   -> fund_raiser (password: Demo1234)')
+  console.log('  donee@example.com         -> donee (password: Demo1234)')
+  console.log('  donee2@example.com        -> donee (password: Demo1234)')
 }
 
 main()

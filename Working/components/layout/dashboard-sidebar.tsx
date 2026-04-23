@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
+import { usePathname } from "next/navigation"
 import {
   LayoutDashboard,
   Heart,
@@ -13,6 +13,7 @@ import {
   BarChart3,
   FileText,
   Users,
+  Mail,
   Folders,
   Menu,
   ChevronRight,
@@ -59,6 +60,8 @@ const fundRaiserNavItems: NavItem[] = [
   { href: "/dashboard/fund-raiser", label: "Dashboard", icon: <LayoutDashboard className="h-5 w-5" /> },
   { href: "/dashboard/fund-raiser/campaigns/new", label: "Create Campaign", icon: <PlusCircle className="h-5 w-5" /> },
   { href: "/dashboard/fund-raiser/campaigns", label: "My Campaigns", icon: <FileText className="h-5 w-5" /> },
+  { href: "/dashboard/fund-raiser/donors", label: "Donors", icon: <Users className="h-5 w-5" /> },
+  { href: "/dashboard/fund-raiser/emails", label: "Emails", icon: <Mail className="h-5 w-5" /> },
   { href: "/dashboard/fund-raiser/analytics", label: "Analytics", icon: <BarChart3 className="h-5 w-5" /> },
   { href: "/dashboard/fund-raiser/history", label: "Completed History", icon: <History className="h-5 w-5" /> },
 ]
@@ -83,9 +86,9 @@ const getNavItems = (role: UserRole): NavItem[] => {
       return doneeNavItems
     case "fund_raiser":
       return fundRaiserNavItems
-    case "admin":
+    case "user_admin":
       return adminNavItems
-    case "platform_manager":
+    case "platform_management":
       return platformNavItems
     default:
       return []
@@ -98,9 +101,9 @@ const getRoleLabel = (role: UserRole): string => {
       return "Donee"
     case "fund_raiser":
       return "Fund Raiser"
-    case "admin":
+    case "user_admin":
       return "Admin"
-    case "platform_manager":
+    case "platform_management":
       return "Platform Manager"
     default:
       return "User"
@@ -140,15 +143,7 @@ function SidebarContent({ role, user, pathname, onNavigate }: {
   pathname: string
   onNavigate?: () => void
 }) {
-  const router = useRouter()
   const navItems = getNavItems(role)
-
-  const handleSignOut = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' })
-    localStorage.removeItem('currentUser')
-    onNavigate?.()
-    router.push('/auth/sign-in')
-  }
   const roleLabel = getRoleLabel(role)
 
   return (
@@ -219,13 +214,14 @@ function SidebarContent({ role, user, pathname, onNavigate }: {
           <Settings className="h-5 w-5" />
           <span>Settings</span>
         </Link>
-        <button
-          onClick={handleSignOut}
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        <Link
+          href="/auth/sign-in"
+          onClick={onNavigate}
+          className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           <LogOut className="h-5 w-5" />
           <span>Sign Out</span>
-        </button>
+        </Link>
       </div>
     </div>
   )
