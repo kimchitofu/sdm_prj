@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "seed": "node ./scripts/seed.js",
+    "seed": "node --env-file=.env ./scripts/seed.js",
     "lint": "eslint .",
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",

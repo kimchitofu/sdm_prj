@@ -1,5 +1,5 @@
 /**
- * Seed script for SQLite + Prisma.
+ * Seed script for MySQL + Prisma 5.
  * Run with: npm run seed
  *
  * Creates demo users, categories, campaigns, and donations.
@@ -7,13 +7,9 @@
  */
 
 const { PrismaClient } = require('@prisma/client')
-const { PrismaBetterSqlite3 } = require('@prisma/adapter-better-sqlite3')
 const bcrypt = require('bcryptjs')
-const path = require('path')
 
-const dbPath = path.join(process.cwd(), 'prisma', 'dev.db')
-const adapter = new PrismaBetterSqlite3({ url: `file:${dbPath}` })
-const prisma = new PrismaClient({ adapter })
+const prisma = new PrismaClient()
 
 async function main() {
   console.log('Seeding database...')
@@ -32,14 +28,15 @@ async function main() {
   await prisma.emailAutomationRule.deleteMany()
 
   // Users
-  const password = await bcrypt.hash('Demo1234', 10)
+  const demoPassword = await bcrypt.hash('Demo1234', 10)
+  const adminPassword = await bcrypt.hash('Admin@1234', 10)
 
   const admin = await prisma.user.create({
     data: {
-      email: 'admin@example.com',
-      password,
-      firstName: 'Admin',
-      lastName: 'User',
+      email: 'admin@fundbridge.com',
+      password: adminPassword,
+      firstName: 'Super',
+      lastName: 'Admin',
       role: 'admin',
       isVerified: true,
     },
@@ -47,8 +44,8 @@ async function main() {
 
   const platformManager = await prisma.user.create({
     data: {
-      email: 'platform@example.com',
-      password,
+      email: 'platform@fundbridge.com',
+      password: demoPassword,
       firstName: 'Platform',
       lastName: 'Manager',
       role: 'platform_manager',
@@ -59,7 +56,7 @@ async function main() {
   const fundraiser1 = await prisma.user.create({
     data: {
       email: 'fundraiser@example.com',
-      password,
+      password: demoPassword,
       firstName: 'Kim',
       lastName: 'Lee',
       role: 'fund_raiser',
@@ -70,7 +67,7 @@ async function main() {
   const fundraiser2 = await prisma.user.create({
     data: {
       email: 'fundraiser2@example.com',
-      password,
+      password: demoPassword,
       firstName: 'Alex',
       lastName: 'Wong',
       role: 'fund_raiser',
@@ -81,7 +78,7 @@ async function main() {
   const donee1 = await prisma.user.create({
     data: {
       email: 'donee@example.com',
-      password,
+      password: demoPassword,
       firstName: 'Ivan',
       lastName: 'Tan',
       role: 'donee',
@@ -92,7 +89,7 @@ async function main() {
   const donee2 = await prisma.user.create({
     data: {
       email: 'donee2@example.com',
-      password,
+      password: demoPassword,
       firstName: 'Sarah',
       lastName: 'Lim',
       role: 'donee',
@@ -229,13 +226,13 @@ async function main() {
   })
 
   console.log('Seed complete.')
-  console.log('\nDemo accounts (password: Demo1234):')
-  console.log('  admin@example.com         -> admin')
-  console.log('  platform@example.com      -> platform_manager')
-  console.log('  fundraiser@example.com    -> fund_raiser')
-  console.log('  fundraiser2@example.com   -> fund_raiser')
-  console.log('  donee@example.com         -> donee')
-  console.log('  donee2@example.com        -> donee')
+  console.log('\nDemo accounts:')
+  console.log('  admin@fundbridge.com      -> admin            (password: Admin@1234)')
+  console.log('  platform@fundbridge.com   -> platform_manager (password: Demo1234)')
+  console.log('  fundraiser@example.com    -> fund_raiser      (password: Demo1234)')
+  console.log('  fundraiser2@example.com   -> fund_raiser      (password: Demo1234)')
+  console.log('  donee@example.com         -> donee            (password: Demo1234)')
+  console.log('  donee2@example.com        -> donee            (password: Demo1234)')
 }
 
 main()

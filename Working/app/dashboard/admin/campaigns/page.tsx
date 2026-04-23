@@ -250,7 +250,7 @@ export default function CampaignReviewPage() {
             </TableHeader>
             <TableBody>
               {filtered.map(review => {
-                const sc = statusConfig[review.status]
+                const sc = statusConfig[review.status as keyof typeof statusConfig] ?? { label: review.status, variant: 'secondary' as const }
                 return (
                   <TableRow key={review.id}>
                     <TableCell className="font-medium max-w-[200px]">
@@ -341,8 +341,8 @@ export default function CampaignReviewPage() {
                 <h3 className="font-semibold text-lg">{selectedReview.campaignTitle}</h3>
                 <div className="flex gap-2 mt-1 flex-wrap">
                   <Badge variant="secondary">{selectedReview.campaignCategory}</Badge>
-                  <Badge variant={statusConfig[selectedReview.status].variant}>
-                    {statusConfig[selectedReview.status].label}
+                  <Badge variant={(statusConfig[selectedReview.status as keyof typeof statusConfig] ?? { variant: 'secondary' }).variant}>
+                    {(statusConfig[selectedReview.status as keyof typeof statusConfig] ?? { label: selectedReview.status }).label}
                   </Badge>
                 </div>
               </div>
