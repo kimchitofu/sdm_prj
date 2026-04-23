@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import {
   Flag,
   MessageSquare,
@@ -53,12 +53,24 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { DashboardLayout } from "@/components/layout/dashboard-sidebar"
 import { StatsCard } from "@/components/ui/stats-card"
-import { campaignReports, messageReports } from "@/lib/mock-data"
-import type { CampaignReport, MessageReport, ReportStatus } from "@/lib/types"
+import { messageReports } from "@/lib/mock-data"
+import { useAuth } from "@/components/providers/session-provider"
+import type { MessageReport, ReportStatus } from "@/lib/types"
 
-const adminUser = {
-  displayName: 'Super Admin',
-  email: 'admin@gmail.com',
+type DbCampaignReport = {
+  id: string
+  reason: string
+  description: string
+  status: string
+  resolvedBy?: string | null
+  resolvedAt?: string | null
+  resolution?: string | null
+  createdAt: string
+  campaignId: string
+  campaignTitle: string
+  reportedById: string
+  reporterName: string
+  reporterEmail: string
 }
 
 const reasonLabels: Record<string, string> = {
@@ -79,11 +91,21 @@ const statusConfig: Record<ReportStatus, { label: string; variant: 'default' | '
 }
 
 export default function ReportsQueuePage() {
-  const [cReports, setCReports] = useState<CampaignReport[]>(campaignReports)
+  const { user: sessionUser } = useAuth()
+  const [cReports, setCReports] = useState<DbCampaignReport[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [mReports, setMReports] = useState<MessageReport[]>(messageReports)
+
+  useEffect(() => {
+    fetch('/api/admin/reports')
+      .then((r) => r.json())
+      .then((data) => setCReports(data.reports ?? []))
+      .catch(() => {})
+      .finally(() => setIsLoading(false))
+  }, [])
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [searchQuery, setSearchQuery] = useState("")
-  const [selectedCReport, setSelectedCReport] = useState<CampaignReport | null>(null)
+  const [selectedCReport, setSelectedCReport] = useState<DbCampaignReport | null>(null)
   const [selectedMReport, setSelectedMReport] = useState<MessageReport | null>(null)
   const [showCDetail, setShowCDetail] = useState(false)
   const [showMDetail, setShowMDetail] = useState(false)
@@ -101,7 +123,7 @@ export default function ReportsQueuePage() {
     const matchesStatus = statusFilter === 'all' || r.status === statusFilter
     const matchesSearch =
       r.campaignTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      r.reportedByName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      r.reporterName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       reasonLabels[r.reason]?.toLowerCase().includes(searchQuery.toLowerCase())
     return matchesStatus && matchesSearch
   }), [cReports, statusFilter, searchQuery])
@@ -115,7 +137,7 @@ export default function ReportsQueuePage() {
     return matchesStatus && matchesSearch
   }), [mReports, statusFilter, searchQuery])
 
-  const handleCAction = (report: CampaignReport, action: string) => {
+  const handleCAction = (report: DbCampaignReport, action: string) => {
     setSelectedCReport(report)
     setActionType(action)
     setActionTarget('campaign')
@@ -131,17 +153,22 @@ export default function ReportsQueuePage() {
     setActionDialogOpen(true)
   }
 
-  const confirmAction = () => {
-    const newStatus: ReportStatus = actionType === 'resolve' ? 'resolved' : actionType === 'dismiss' ? 'dismissed' : 'under_review'
+  const confirmAction = async () => {
+    const newStatus = actionType === 'resolve' ? 'resolved' : actionType === 'dismiss' ? 'dismissed' : 'under_review'
     if (actionTarget === 'campaign' && selectedCReport) {
-      setCReports(prev => prev.map(r =>
+      await fetch('/api/admin/reports', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reportId: selectedCReport.id, status: newStatus, resolution: resolutionNote }),
+      })
+      setCReports((prev) => prev.map((r) =>
         r.id === selectedCReport.id
-          ? { ...r, status: newStatus, resolvedBy: adminUser.displayName, resolvedAt: new Date().toISOString(), resolution: resolutionNote }
+          ? { ...r, status: newStatus, resolvedAt: new Date().toISOString(), resolution: resolutionNote }
           : r
       ))
     } else if (actionTarget === 'message' && selectedMReport) {
-      setMReports(prev => prev.map(r =>
-        r.id === selectedMReport.id ? { ...r, status: newStatus } : r
+      setMReports((prev) => prev.map((r) =>
+        r.id === selectedMReport.id ? { ...r, status: newStatus as ReportStatus } : r
       ))
     }
     setActionDialogOpen(false)
@@ -164,10 +191,14 @@ export default function ReportsQueuePage() {
     }
   })()
 
+  const sidebarUser = sessionUser
+    ? { name: `${sessionUser.firstName} ${sessionUser.lastName}`, email: sessionUser.email, role: sessionUser.role }
+    : undefined
+
   return (
     <DashboardLayout
       role="admin"
-      user={{ name: adminUser.displayName, email: adminUser.email, role: 'admin' }}
+      user={sidebarUser}
     >
       <div className="mb-8">
         <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">Reports Queue</h1>
@@ -231,6 +262,7 @@ export default function ReportsQueuePage() {
         <TabsContent value="campaigns">
           <Card>
             <CardContent className="p-0">
+              {isLoading && <div className="py-12 text-center text-muted-foreground">Loading reports...</div>}
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -248,13 +280,13 @@ export default function ReportsQueuePage() {
                       <TableCell className="font-medium max-w-[180px]">
                         <p className="truncate">{report.campaignTitle}</p>
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{report.reportedByName}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{report.reporterName}</TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="text-xs">{reasonLabels[report.reason]}</Badge>
+                        <Badge variant="outline" className="text-xs">{reasonLabels[report.reason] ?? report.reason}</Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={statusConfig[report.status].variant} className="text-xs">
-                          {statusConfig[report.status].label}
+                        <Badge variant={statusConfig[report.status as keyof typeof statusConfig]?.variant ?? 'secondary'} className="text-xs">
+                          {statusConfig[report.status as keyof typeof statusConfig]?.label ?? report.status}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-muted-foreground text-sm">
@@ -382,7 +414,7 @@ export default function ReportsQueuePage() {
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <p className="text-muted-foreground">Reported By</p>
-                  <p className="font-medium">{selectedCReport.reportedByName}</p>
+                  <p className="font-medium">{selectedCReport.reporterName}</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Reason</p>

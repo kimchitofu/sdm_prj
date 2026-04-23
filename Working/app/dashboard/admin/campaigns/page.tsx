@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import {
   CheckCircle,
   XCircle,
@@ -55,12 +55,11 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { DashboardLayout } from "@/components/layout/dashboard-sidebar"
 import { StatsCard } from "@/components/ui/stats-card"
-import { campaignReviews, formatCurrency } from "@/lib/mock-data"
+import { useAuth } from "@/components/providers/session-provider"
 import type { CampaignReview, ReviewStatus } from "@/lib/types"
 
-const adminUser = {
-  displayName: 'Super Admin',
-  email: 'admin@gmail.com',
+function formatCurrency(amount: number) {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(amount)
 }
 
 const statusConfig: Record<ReviewStatus, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
@@ -72,7 +71,9 @@ const statusConfig: Record<ReviewStatus, { label: string; variant: 'default' | '
 }
 
 export default function CampaignReviewPage() {
-  const [reviews, setReviews] = useState<CampaignReview[]>(campaignReviews)
+  const { user: sessionUser } = useAuth()
+  const [reviews, setReviews] = useState<CampaignReview[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedReview, setSelectedReview] = useState<CampaignReview | null>(null)
@@ -80,6 +81,14 @@ export default function CampaignReviewPage() {
   const [actionType, setActionType] = useState<string>("")
   const [actionDialogOpen, setActionDialogOpen] = useState(false)
   const [reviewNotes, setReviewNotes] = useState("")
+
+  useEffect(() => {
+    fetch('/api/admin/campaigns')
+      .then((r) => r.json())
+      .then((data) => setReviews(data.campaigns ?? []))
+      .catch(() => {})
+      .finally(() => setIsLoading(false))
+  }, [])
 
   const stats = useMemo(() => ({
     pending: reviews.filter(r => r.status === 'pending_review').length,
@@ -103,7 +112,7 @@ export default function CampaignReviewPage() {
     setActionDialogOpen(true)
   }
 
-  const confirmAction = () => {
+  const confirmAction = async () => {
     if (!selectedReview) return
     const newStatus: ReviewStatus =
       actionType === 'approve' ? 'approved' :
@@ -111,10 +120,16 @@ export default function CampaignReviewPage() {
       actionType === 'under_review' ? 'under_review' :
       'on_hold'
 
-    setReviews(prev =>
-      prev.map(r =>
+    await fetch('/api/admin/campaigns', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ campaignId: selectedReview.campaignId, status: newStatus }),
+    })
+
+    setReviews((prev) =>
+      prev.map((r) =>
         r.id === selectedReview.id
-          ? { ...r, status: newStatus, notes: reviewNotes, reviewedBy: adminUser.displayName, reviewedAt: new Date().toISOString() }
+          ? { ...r, status: newStatus, notes: reviewNotes, reviewedAt: new Date().toISOString() }
           : r
       )
     )
@@ -161,10 +176,14 @@ export default function CampaignReviewPage() {
 
   const dialogContent = getActionDialogContent()
 
+  const sidebarUser = sessionUser
+    ? { name: `${sessionUser.firstName} ${sessionUser.lastName}`, email: sessionUser.email, role: sessionUser.role }
+    : undefined
+
   return (
     <DashboardLayout
       role="admin"
-      user={{ name: adminUser.displayName, email: adminUser.email, role: 'admin' }}
+      user={sidebarUser}
     >
       <div className="mb-8">
         <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">Campaign Review</h1>
@@ -213,6 +232,9 @@ export default function CampaignReviewPage() {
       {/* Campaign Review Table */}
       <Card>
         <CardContent className="p-0">
+          {isLoading ? (
+            <div className="py-16 text-center text-muted-foreground">Loading campaigns...</div>
+          ) : (
           <Table>
             <TableHeader>
               <TableRow>
@@ -296,6 +318,7 @@ export default function CampaignReviewPage() {
               )}
             </TableBody>
           </Table>
+          )}
         </CardContent>
       </Card>
 

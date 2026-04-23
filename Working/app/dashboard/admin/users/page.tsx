@@ -16,12 +16,11 @@ import {
   Activity,
   Download,
   Lock,
-  Unlock,
   Clock,
   AlertTriangle,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -68,75 +67,102 @@ import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { DashboardLayout } from "@/components/layout/dashboard-sidebar"
 import { StatsCard } from "@/components/ui/stats-card"
-import { users, auditLogs } from "@/lib/mock-data"
-import { User } from "@/lib/types"
-import { getRegisteredUsers } from "@/lib/utils"
+import { useAuth } from "@/components/providers/session-provider"
 
-const adminUser = {
-  displayName: 'Super Admin',
-  email: 'admin@gmail.com',
-  role: 'Admin'
+type DbUser = {
+  id: string
+  email: string
+  firstName: string
+  lastName: string
+  displayName: string
+  role: string
+  phone?: string | null
+  location?: string | null
+  avatar?: string | null
+  bio?: string | null
+  isVerified: boolean
+  status: string
+  createdAt: string
+  lastLoginAt?: string | null
 }
 
-// Flagged user IDs (users with suspicious audit activity)
-const flaggedUserIds = new Set(
-  auditLogs
-    .filter(l => l.action === 'account_frozen' || l.action === 'account_suspended')
-    .map(l => l.userId)
-)
+type AuditLogEntry = {
+  id: string
+  action: string
+  description: string
+  createdAt: string
+  ipAddress?: string | null
+}
 
 export default function AdminUsersPage() {
+  const { user: sessionUser } = useAuth()
+
+  const [allUsers, setAllUsers] = useState<DbUser[]>([])
+  const [flaggedUserIds, setFlaggedUserIds] = useState<Set<string>>(new Set())
+  const [isLoadingUsers, setIsLoadingUsers] = useState(true)
+
   const [searchQuery, setSearchQuery] = useState("")
   const [roleFilter, setRoleFilter] = useState<string>("all")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [flaggedFilter, setFlaggedFilter] = useState<string>("all")
-  const [selectedUser, setSelectedUser] = useState<User | null>(null)
+  const [selectedUser, setSelectedUser] = useState<DbUser | null>(null)
   const [showUserDetail, setShowUserDetail] = useState(false)
   const [actionDialogOpen, setActionDialogOpen] = useState(false)
   const [actionType, setActionType] = useState<string>("")
-  const [registeredUsers, setRegisteredUsers] = useState<User[]>([])
+
+  const [userAuditLogs, setUserAuditLogs] = useState<AuditLogEntry[]>([])
+  const [isLoadingLogs, setIsLoadingLogs] = useState(false)
 
   useEffect(() => {
-    setRegisteredUsers(getRegisteredUsers() as User[])
+    fetch('/api/admin/users')
+      .then((r) => r.json())
+      .then((data) => {
+        setAllUsers(data.users ?? [])
+        setFlaggedUserIds(new Set(data.flaggedUserIds ?? []))
+      })
+      .catch(() => {})
+      .finally(() => setIsLoadingUsers(false))
   }, [])
 
-  const allUsers = useMemo(() => {
-    const existingEmails = new Set(users.map(u => u.email.toLowerCase()))
-    const newUsers = registeredUsers.filter(u => !existingEmails.has(u.email.toLowerCase()))
-    return [...users, ...newUsers]
-  }, [registeredUsers])
+  const openUserDetail = (user: DbUser) => {
+    setSelectedUser(user)
+    setShowUserDetail(true)
+    setUserAuditLogs([])
+    setIsLoadingLogs(true)
+    fetch(`/api/admin/users/${user.id}/audit-logs`)
+      .then((r) => r.json())
+      .then((data) => setUserAuditLogs(data.logs ?? []))
+      .catch(() => {})
+      .finally(() => setIsLoadingLogs(false))
+  }
 
   const stats = useMemo(() => ({
     total: allUsers.length,
-    active: allUsers.filter(u => u.status === 'active').length,
-    suspended: allUsers.filter(u => u.status === 'suspended').length,
-    fundRaisers: allUsers.filter(u => u.role === 'fund_raiser').length,
-    donees: allUsers.filter(u => u.role === 'donee').length,
+    active: allUsers.filter((u) => u.status === 'active').length,
+    suspended: allUsers.filter((u) => u.status === 'suspended').length,
+    fundRaisers: allUsers.filter((u) => u.role === 'fund_raiser').length,
+    donees: allUsers.filter((u) => u.role === 'donee').length,
   }), [allUsers])
 
-  const filteredUsers = useMemo(() => allUsers.filter(user => {
+  const filteredUsers = useMemo(() => allUsers.filter((user) => {
     const matchesSearch =
       user.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.email.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesRole = roleFilter === "all" || user.role === roleFilter
     const matchesStatus = statusFilter === "all" || user.status === statusFilter
-    const matchesFlagged = flaggedFilter === "all" ||
+    const matchesFlagged =
+      flaggedFilter === "all" ||
       (flaggedFilter === "flagged" && flaggedUserIds.has(user.id)) ||
       (flaggedFilter === "clean" && !flaggedUserIds.has(user.id))
     return matchesSearch && matchesRole && matchesStatus && matchesFlagged
-  }), [allUsers, searchQuery, roleFilter, statusFilter, flaggedFilter])
-
-  const getUserAuditLogs = (userId: string) =>
-    auditLogs.filter(l => l.userId === userId).sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    )
+  }), [allUsers, searchQuery, roleFilter, statusFilter, flaggedFilter, flaggedUserIds])
 
   const getRoleBadgeVariant = (role: string) => {
     switch (role) {
       case 'fund_raiser': return 'default' as const
       case 'donee': return 'secondary' as const
-      case 'user_admin': return 'destructive' as const
-      case 'platform_management': return 'outline' as const
+      case 'admin': return 'destructive' as const
+      case 'platform_manager': return 'outline' as const
       default: return 'secondary' as const
     }
   }
@@ -145,8 +171,8 @@ export default function AdminUsersPage() {
     switch (role) {
       case 'fund_raiser': return 'Fund Raiser'
       case 'donee': return 'Donee'
-      case 'user_admin': return 'Admin'
-      case 'platform_management': return 'Platform Manager'
+      case 'admin': return 'Admin'
+      case 'platform_manager': return 'Platform Manager'
       default: return role
     }
   }
@@ -182,7 +208,7 @@ export default function AdminUsersPage() {
     return map[action] ?? action
   }
 
-  const handleAction = (user: User, action: string) => {
+  const handleAction = (user: DbUser, action: string) => {
     setSelectedUser(user)
     setActionType(action)
     setActionDialogOpen(true)
@@ -198,40 +224,15 @@ export default function AdminUsersPage() {
     if (!selectedUser) return { title: '', description: '', buttonLabel: '', danger: false }
     switch (actionType) {
       case 'suspend':
-        return {
-          title: 'Suspend User?',
-          description: `This will suspend ${selectedUser.displayName}'s account. They will not be able to access the platform until reactivated.`,
-          buttonLabel: 'Suspend',
-          danger: false,
-        }
+        return { title: 'Suspend User?', description: `This will suspend ${selectedUser.displayName}'s account. They will not be able to access the platform until reactivated.`, buttonLabel: 'Suspend', danger: false }
       case 'activate':
-        return {
-          title: 'Activate User?',
-          description: `This will reactivate ${selectedUser.displayName}'s account and restore their access.`,
-          buttonLabel: 'Activate',
-          danger: false,
-        }
+        return { title: 'Activate User?', description: `This will reactivate ${selectedUser.displayName}'s account and restore their access.`, buttonLabel: 'Activate', danger: false }
       case 'freeze':
-        return {
-          title: 'Freeze Account?',
-          description: `This will temporarily freeze ${selectedUser.displayName}'s account pending investigation. They will be notified via email.`,
-          buttonLabel: 'Freeze Account',
-          danger: false,
-        }
+        return { title: 'Freeze Account?', description: `This will temporarily freeze ${selectedUser.displayName}'s account pending investigation.`, buttonLabel: 'Freeze Account', danger: false }
       case 'unfreeze':
-        return {
-          title: 'Unfreeze Account?',
-          description: `This will restore ${selectedUser.displayName}'s account access.`,
-          buttonLabel: 'Unfreeze',
-          danger: false,
-        }
+        return { title: 'Unfreeze Account?', description: `This will restore ${selectedUser.displayName}'s account access.`, buttonLabel: 'Unfreeze', danger: false }
       case 'deactivate':
-        return {
-          title: 'Deactivate Account?',
-          description: `This will permanently deactivate ${selectedUser.displayName}'s account. This action cannot be easily undone.`,
-          buttonLabel: 'Deactivate',
-          danger: true,
-        }
+        return { title: 'Deactivate Account?', description: `This will permanently deactivate ${selectedUser.displayName}'s account. This action cannot be easily undone.`, buttonLabel: 'Deactivate', danger: true }
       default:
         return { title: '', description: '', buttonLabel: 'Confirm', danger: false }
     }
@@ -239,15 +240,12 @@ export default function AdminUsersPage() {
 
   const dialog = getActionDialogContent()
 
+  const sidebarUser = sessionUser
+    ? { name: `${sessionUser.firstName} ${sessionUser.lastName}`, email: sessionUser.email, role: sessionUser.role }
+    : undefined
+
   return (
-    <DashboardLayout
-      role="admin"
-      user={{
-        name: adminUser.displayName,
-        email: adminUser.email,
-        role: 'admin'
-      }}
-    >
+    <DashboardLayout role="admin" user={sidebarUser}>
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
         <div>
@@ -291,8 +289,8 @@ export default function AdminUsersPage() {
                 <SelectItem value="all">All Roles</SelectItem>
                 <SelectItem value="fund_raiser">Fund Raiser</SelectItem>
                 <SelectItem value="donee">Donee</SelectItem>
-                <SelectItem value="user_admin">Admin</SelectItem>
-                <SelectItem value="platform_management">Platform Manager</SelectItem>
+                <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="platform_manager">Platform Manager</SelectItem>
               </SelectContent>
             </Select>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -307,7 +305,6 @@ export default function AdminUsersPage() {
                 <SelectItem value="deactivated">Deactivated</SelectItem>
               </SelectContent>
             </Select>
-            {/* SA-UC09: Flagged Activity Filter */}
             <Select value={flaggedFilter} onValueChange={setFlaggedFilter}>
               <SelectTrigger className="w-full md:w-[180px]">
                 <AlertTriangle className="h-4 w-4 mr-2" />
@@ -326,112 +323,116 @@ export default function AdminUsersPage() {
       {/* Users Table */}
       <Card>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>User</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Flagged</TableHead>
-                <TableHead>Joined</TableHead>
-                <TableHead>Last Active</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredUsers.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <Avatar>
-                        <AvatarImage src={user.avatar} />
-                        <AvatarFallback>{user.displayName.slice(0, 2).toUpperCase()}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-medium text-foreground">{user.displayName}</p>
-                        <p className="text-sm text-muted-foreground">{user.email}</p>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={getRoleBadgeVariant(user.role)}>
-                      {getRoleLabel(user.role)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={getStatusBadgeVariant(user.status)}>
-                      {user.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {flaggedUserIds.has(user.id) && (
-                      <Badge variant="destructive" className="gap-1">
-                        <AlertTriangle className="h-3 w-3" />
-                        Flagged
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {new Date(user.createdAt).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {new Date(user.lastLoginAt || user.createdAt).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => { setSelectedUser(user); setShowUserDetail(true) }}>
-                          <Eye className="h-4 w-4 mr-2" />
-                          View Details & History
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <Mail className="h-4 w-4 mr-2" />
-                          Send Email
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        {user.status === 'active' ? (
-                          <>
-                            <DropdownMenuItem onClick={() => handleAction(user, 'freeze')}>
-                              <Lock className="h-4 w-4 mr-2" />
-                              Freeze Account
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleAction(user, 'suspend')}>
-                              <UserX className="h-4 w-4 mr-2" />
-                              Suspend User
-                            </DropdownMenuItem>
-                          </>
-                        ) : user.status === 'suspended' ? (
-                          <DropdownMenuItem onClick={() => handleAction(user, 'activate')}>
-                            <UserCheck className="h-4 w-4 mr-2" />
-                            Reactivate User
-                          </DropdownMenuItem>
-                        ) : null}
-                        <DropdownMenuItem
-                          className="text-destructive"
-                          onClick={() => handleAction(user, 'deactivate')}
-                        >
-                          <Ban className="h-4 w-4 mr-2" />
-                          Deactivate Account
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {filteredUsers.length === 0 && (
+          {isLoadingUsers ? (
+            <div className="py-16 text-center text-muted-foreground">Loading users...</div>
+          ) : (
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                    No users match the selected filters.
-                  </TableCell>
+                  <TableHead>User</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Flagged</TableHead>
+                  <TableHead>Joined</TableHead>
+                  <TableHead>Last Active</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredUsers.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Avatar>
+                          <AvatarImage src={user.avatar ?? undefined} />
+                          <AvatarFallback>{user.displayName.slice(0, 2).toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="font-medium text-foreground">{user.displayName}</p>
+                          <p className="text-sm text-muted-foreground">{user.email}</p>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={getRoleBadgeVariant(user.role)}>
+                        {getRoleLabel(user.role)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={getStatusBadgeVariant(user.status)}>
+                        {user.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {flaggedUserIds.has(user.id) && (
+                        <Badge variant="destructive" className="gap-1">
+                          <AlertTriangle className="h-3 w-3" />
+                          Flagged
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {new Date(user.createdAt).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {new Date(user.lastLoginAt || user.createdAt).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openUserDetail(user)}>
+                            <Eye className="h-4 w-4 mr-2" />
+                            View Details & History
+                          </DropdownMenuItem>
+                          <DropdownMenuItem>
+                            <Mail className="h-4 w-4 mr-2" />
+                            Send Email
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          {user.status === 'active' ? (
+                            <>
+                              <DropdownMenuItem onClick={() => handleAction(user, 'freeze')}>
+                                <Lock className="h-4 w-4 mr-2" />
+                                Freeze Account
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleAction(user, 'suspend')}>
+                                <UserX className="h-4 w-4 mr-2" />
+                                Suspend User
+                              </DropdownMenuItem>
+                            </>
+                          ) : user.status === 'suspended' ? (
+                            <DropdownMenuItem onClick={() => handleAction(user, 'activate')}>
+                              <UserCheck className="h-4 w-4 mr-2" />
+                              Reactivate User
+                            </DropdownMenuItem>
+                          ) : null}
+                          <DropdownMenuItem
+                            className="text-destructive"
+                            onClick={() => handleAction(user, 'deactivate')}
+                          >
+                            <Ban className="h-4 w-4 mr-2" />
+                            Deactivate Account
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {filteredUsers.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                      No users match the selected filters.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
 
@@ -449,11 +450,10 @@ export default function AdminUsersPage() {
                 <TabsTrigger value="history" className="flex-1">Account History</TabsTrigger>
               </TabsList>
 
-              {/* Profile Tab */}
               <TabsContent value="profile" className="space-y-6 pt-4">
                 <div className="flex items-center gap-4">
                   <Avatar className="h-16 w-16">
-                    <AvatarImage src={selectedUser.avatar} />
+                    <AvatarImage src={selectedUser.avatar ?? undefined} />
                     <AvatarFallback className="text-lg">{selectedUser.displayName.slice(0, 2).toUpperCase()}</AvatarFallback>
                   </Avatar>
                   <div>
@@ -508,29 +508,17 @@ export default function AdminUsersPage() {
                 <div className="flex gap-2 flex-wrap">
                   {selectedUser.status === 'active' ? (
                     <>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => { setShowUserDetail(false); handleAction(selectedUser, 'freeze') }}
-                      >
+                      <Button variant="outline" size="sm" onClick={() => { setShowUserDetail(false); handleAction(selectedUser, 'freeze') }}>
                         <Lock className="h-4 w-4 mr-2" />
                         Freeze
                       </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => { setShowUserDetail(false); handleAction(selectedUser, 'suspend') }}
-                      >
+                      <Button variant="outline" size="sm" onClick={() => { setShowUserDetail(false); handleAction(selectedUser, 'suspend') }}>
                         <UserX className="h-4 w-4 mr-2" />
                         Suspend
                       </Button>
                     </>
                   ) : (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => { setShowUserDetail(false); handleAction(selectedUser, 'activate') }}
-                    >
+                    <Button variant="outline" size="sm" onClick={() => { setShowUserDetail(false); handleAction(selectedUser, 'activate') }}>
                       <UserCheck className="h-4 w-4 mr-2" />
                       Reactivate
                     </Button>
@@ -542,31 +530,34 @@ export default function AdminUsersPage() {
                 </div>
               </TabsContent>
 
-              {/* Account History Tab */}
               <TabsContent value="history" className="pt-4">
-                <div className="space-y-3">
-                  {getUserAuditLogs(selectedUser.id).length === 0 ? (
-                    <p className="text-muted-foreground text-sm text-center py-6">No account history available.</p>
-                  ) : (
-                    getUserAuditLogs(selectedUser.id).map((log) => (
-                      <div key={log.id} className="flex items-start gap-3 p-3 rounded-lg border border-border">
-                        <Clock className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium">{getActionLabel(log.action)}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">{log.description}</p>
-                          <div className="flex gap-3 mt-1">
-                            <span className="text-xs text-muted-foreground">
-                              {new Date(log.createdAt).toLocaleString()}
-                            </span>
-                            {log.ipAddress && (
-                              <span className="text-xs text-muted-foreground">IP: {log.ipAddress}</span>
-                            )}
+                {isLoadingLogs ? (
+                  <p className="text-muted-foreground text-sm text-center py-6">Loading history...</p>
+                ) : (
+                  <div className="space-y-3">
+                    {userAuditLogs.length === 0 ? (
+                      <p className="text-muted-foreground text-sm text-center py-6">No account history available.</p>
+                    ) : (
+                      userAuditLogs.map((log) => (
+                        <div key={log.id} className="flex items-start gap-3 p-3 rounded-lg border border-border">
+                          <Clock className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium">{getActionLabel(log.action)}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">{log.description}</p>
+                            <div className="flex gap-3 mt-1">
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(log.createdAt).toLocaleString()}
+                              </span>
+                              {log.ipAddress && (
+                                <span className="text-xs text-muted-foreground">IP: {log.ipAddress}</span>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))
-                  )}
-                </div>
+                      ))
+                    )}
+                  </div>
+                )}
               </TabsContent>
             </Tabs>
           )}
