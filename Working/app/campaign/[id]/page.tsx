@@ -1,15 +1,14 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
-import { 
-  Heart, 
-  Share2, 
-  Calendar, 
-  MapPin, 
-  Users, 
-  Eye, 
+import {
+  Heart,
+  Share2,
+  Calendar,
+  Users,
+  Eye,
   Clock,
   CheckCircle2,
   ArrowLeft,
@@ -18,7 +17,7 @@ import {
   Copy,
   Facebook,
   Twitter,
-  MessageCircle
+  MessageCircle,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -45,22 +44,48 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
+import { Skeleton } from "@/components/ui/skeleton"
 import { PublicNavbar } from "@/components/layout/public-navbar"
 import { Footer } from "@/components/layout/footer"
-import { CampaignCard } from "@/components/campaigns/campaign-card"
-import { campaigns, donations } from "@/lib/mock-data"
+import { useAuth } from "@/components/providers/session-provider"
 
 const donationPresets = [25, 50, 100, 250, 500, 1000]
+
+type CampaignDetail = {
+  id: string
+  title: string
+  summary: string
+  description: string
+  category: string
+  serviceType: string
+  status: string
+  targetAmount: number
+  raisedAmount: number
+  donorCount: number
+  views: number
+  favouriteCount: number
+  startDate: string
+  endDate: string
+  coverImage: string
+  createdAt: string
+  organiser: { id: string; name: string; avatar?: string; isVerified: boolean }
+  beneficiary: { name: string; relationship?: string; description?: string }
+  updates: { id: string; title: string; content: string; createdAt: string }[]
+  recentDonations: { id: string; donorName: string; isAnonymous: boolean; amount: number; message?: string; createdAt: string }[]
+}
+
+function formatCurrency(amount: number) {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(amount)
+}
 
 export default function CampaignDetailPage() {
   const params = useParams()
   const campaignId = params.id as string
-  
-  const campaign = campaigns.find(c => c.id === campaignId) || campaigns[0]
-  const relatedCampaigns = campaigns.filter(c => c.category === campaign.category && c.id !== campaign.id).slice(0, 3)
-  const campaignDonations = donations.filter(d => d.campaignId === campaign.id).slice(0, 5)
-  const updates = campaign.updates ?? []
-  
+  const { user: sessionUser } = useAuth()
+
+  const [campaign, setCampaign] = useState<CampaignDetail | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+
   const [isFavourite, setIsFavourite] = useState(false)
   const [donationAmount, setDonationAmount] = useState<number>(50)
   const [customAmount, setCustomAmount] = useState("")
@@ -68,22 +93,81 @@ export default function CampaignDetailPage() {
   const [donorMessage, setDonorMessage] = useState("")
   const [showDonationSuccess, setShowDonationSuccess] = useState(false)
   const [donationDialogOpen, setDonationDialogOpen] = useState(false)
-  
+  const [isDonating, setIsDonating] = useState(false)
+  const [confirmationNumber, setConfirmationNumber] = useState("")
+
+  useEffect(() => {
+    fetch(`/api/campaigns/${campaignId}`)
+      .then((r) => r.json())
+      .then((data) => setCampaign(data.campaign ?? null))
+      .catch(() => {})
+      .finally(() => setIsLoading(false))
+  }, [campaignId])
+
+  const handleDonate = async () => {
+    if (!donationAmount || donationAmount <= 0) return
+    setIsDonating(true)
+    try {
+      const res = await fetch('/api/donations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          campaignId,
+          amount: donationAmount,
+          isAnonymous,
+          message: donorMessage || null,
+        }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setConfirmationNumber(data.confirmationNumber)
+        setShowDonationSuccess(true)
+        // Update raised amount locally
+        setCampaign((prev) =>
+          prev
+            ? { ...prev, raisedAmount: prev.raisedAmount + donationAmount, donorCount: prev.donorCount + 1 }
+            : prev
+        )
+      }
+    } catch {}
+    setIsDonating(false)
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <PublicNavbar />
+        <main className="flex-1 container mx-auto px-4 py-8">
+          <Skeleton className="h-[400px] w-full rounded-2xl mb-6" />
+          <Skeleton className="h-8 w-2/3 mb-3" />
+          <Skeleton className="h-4 w-full mb-2" />
+          <Skeleton className="h-4 w-3/4" />
+        </main>
+        <Footer />
+      </div>
+    )
+  }
+
+  if (!campaign) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <PublicNavbar />
+        <main className="flex-1 container mx-auto px-4 py-8 text-center">
+          <h1 className="text-2xl font-bold mb-2">Campaign not found</h1>
+          <Link href="/browse"><Button>Back to Browse</Button></Link>
+        </main>
+        <Footer />
+      </div>
+    )
+  }
+
   const progress = (campaign.raisedAmount / campaign.targetAmount) * 100
   const daysRemaining = Math.max(0, Math.ceil((new Date(campaign.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
-  
-  const handleDonate = () => {
-    setShowDonationSuccess(true)
-  }
-  
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(amount)
-  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <PublicNavbar />
-      
+
       <main className="flex-1">
         {/* Breadcrumb */}
         <div className="border-b bg-muted/30">
@@ -107,18 +191,20 @@ export default function CampaignDetailPage() {
             <div className="lg:col-span-2 space-y-6">
               {/* Campaign Hero */}
               <div className="relative rounded-2xl overflow-hidden aspect-video bg-muted">
-                <img 
-                  src={campaign.coverImage} 
-                  alt={campaign.title}
-                  className="w-full h-full object-cover"
-                />
+                {campaign.coverImage && (
+                  <img
+                    src={campaign.coverImage}
+                    alt={campaign.title}
+                    className="w-full h-full object-cover"
+                  />
+                )}
                 {campaign.organiser.isVerified && (
                   <Badge className="absolute top-4 left-4 bg-primary text-primary-foreground">
                     <CheckCircle2 className="h-3 w-3 mr-1" />
                     Verified
                   </Badge>
                 )}
-                <Badge 
+                <Badge
                   className="absolute top-4 right-4"
                   variant={campaign.status === 'active' ? 'default' : 'secondary'}
                 >
@@ -147,10 +233,6 @@ export default function CampaignDetailPage() {
                         <CheckCircle2 className="h-3 w-3 text-primary inline ml-1" />
                       )}
                     </div>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <MapPin className="h-4 w-4" />
-                    {campaign.location}
                   </div>
                   <div className="flex items-center gap-1">
                     <Calendar className="h-4 w-4" />
@@ -188,10 +270,10 @@ export default function CampaignDetailPage() {
               <Tabs defaultValue="story" className="w-full">
                 <TabsList className="w-full justify-start">
                   <TabsTrigger value="story">Story</TabsTrigger>
-                  <TabsTrigger value="updates">Updates ({updates.length})</TabsTrigger>
+                  <TabsTrigger value="updates">Updates ({campaign.updates.length})</TabsTrigger>
                   <TabsTrigger value="donors">Recent Donors</TabsTrigger>
                 </TabsList>
-                
+
                 <TabsContent value="story" className="mt-6">
                   <Card>
                     <CardContent className="p-6">
@@ -201,22 +283,27 @@ export default function CampaignDetailPage() {
                         <div className="whitespace-pre-line text-muted-foreground">
                           {campaign.description}
                         </div>
-                        
+
                         <Separator className="my-6" />
-                        
+
                         <h4 className="text-base font-semibold mb-3">Beneficiary Information</h4>
                         <div className="bg-muted/50 rounded-lg p-4">
                           <p className="font-medium text-foreground">{campaign.beneficiary.name}</p>
-                          <p className="text-sm text-muted-foreground mt-1">{campaign.beneficiary.relationship}</p>
+                          {campaign.beneficiary.relationship && (
+                            <p className="text-sm text-muted-foreground mt-1">{campaign.beneficiary.relationship}</p>
+                          )}
+                          {campaign.beneficiary.description && (
+                            <p className="text-sm text-muted-foreground mt-1">{campaign.beneficiary.description}</p>
+                          )}
                         </div>
                       </div>
                     </CardContent>
                   </Card>
                 </TabsContent>
-                
+
                 <TabsContent value="updates" className="mt-6">
                   <div className="space-y-4">
-                    {updates.length > 0 ? updates.map((update) => (
+                    {campaign.updates.length > 0 ? campaign.updates.map((update) => (
                       <Card key={update.id}>
                         <CardContent className="p-6">
                           <div className="flex items-start justify-between mb-3">
@@ -233,18 +320,19 @@ export default function CampaignDetailPage() {
                         <CardContent className="p-8 text-center">
                           <MessageCircle className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
                           <p className="text-muted-foreground">No updates yet</p>
-                          <p className="text-sm text-muted-foreground/70">Check back later for campaign updates</p>
                         </CardContent>
                       </Card>
                     )}
                   </div>
                 </TabsContent>
-                
+
                 <TabsContent value="donors" className="mt-6">
                   <Card>
                     <CardContent className="p-6">
                       <div className="space-y-4">
-                        {campaignDonations.map((donation) => (
+                        {campaign.recentDonations.length === 0 ? (
+                          <p className="text-muted-foreground text-sm text-center py-4">No donations yet. Be the first!</p>
+                        ) : campaign.recentDonations.map((donation) => (
                           <div key={donation.id} className="flex items-start gap-3 pb-4 border-b border-border last:border-0 last:pb-0">
                             <Avatar className="h-10 w-10">
                               <AvatarFallback>
@@ -253,9 +341,7 @@ export default function CampaignDetailPage() {
                             </Avatar>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between">
-                                <p className="font-medium text-foreground">
-                                  {donation.isAnonymous ? 'Anonymous' : donation.donorName}
-                                </p>
+                                <p className="font-medium text-foreground">{donation.donorName}</p>
                                 <span className="font-semibold text-primary">
                                   {formatCurrency(donation.amount)}
                                 </span>
@@ -292,7 +378,7 @@ export default function CampaignDetailPage() {
                         of {formatCurrency(campaign.targetAmount)}
                       </span>
                     </div>
-                    <Progress value={progress} className="h-3 mb-2" />
+                    <Progress value={Math.min(progress, 100)} className="h-3 mb-2" />
                     <div className="flex justify-between text-sm text-muted-foreground">
                       <span>{Math.round(progress)}% funded</span>
                       <span className="flex items-center gap-1">
@@ -307,7 +393,10 @@ export default function CampaignDetailPage() {
                     <span>{campaign.donorCount} donors have contributed</span>
                   </div>
 
-                  <Dialog open={donationDialogOpen} onOpenChange={setDonationDialogOpen}>
+                  <Dialog open={donationDialogOpen} onOpenChange={(open) => {
+                    setDonationDialogOpen(open)
+                    if (!open) { setShowDonationSuccess(false); setDonorMessage(""); setCustomAmount(""); setDonationAmount(50); setIsAnonymous(false) }
+                  }}>
                     <DialogTrigger asChild>
                       <Button className="w-full mb-3" size="lg">
                         Donate Now
@@ -329,11 +418,8 @@ export default function CampaignDetailPage() {
                                 {donationPresets.map((amount) => (
                                   <Button
                                     key={amount}
-                                    variant={donationAmount === amount ? "default" : "outline"}
-                                    onClick={() => {
-                                      setDonationAmount(amount)
-                                      setCustomAmount("")
-                                    }}
+                                    variant={donationAmount === amount && !customAmount ? "default" : "outline"}
+                                    onClick={() => { setDonationAmount(amount); setCustomAmount("") }}
                                     className="h-12"
                                   >
                                     ${amount}
@@ -348,9 +434,7 @@ export default function CampaignDetailPage() {
                                   value={customAmount}
                                   onChange={(e) => {
                                     setCustomAmount(e.target.value)
-                                    if (e.target.value) {
-                                      setDonationAmount(parseFloat(e.target.value))
-                                    }
+                                    if (e.target.value) setDonationAmount(parseFloat(e.target.value))
                                   }}
                                   className="pl-7"
                                 />
@@ -359,12 +443,14 @@ export default function CampaignDetailPage() {
 
                             <div className="flex items-center justify-between">
                               <Label htmlFor="anonymous" className="text-sm">Donate anonymously</Label>
-                              <Switch
-                                id="anonymous"
-                                checked={isAnonymous}
-                                onCheckedChange={setIsAnonymous}
-                              />
+                              <Switch id="anonymous" checked={isAnonymous} onCheckedChange={setIsAnonymous} />
                             </div>
+
+                            {sessionUser && !isAnonymous && (
+                              <p className="text-sm text-muted-foreground">
+                                Donating as <span className="font-medium text-foreground">{sessionUser.firstName} {sessionUser.lastName}</span>
+                              </p>
+                            )}
 
                             <div>
                               <Label htmlFor="message" className="text-sm font-medium mb-2 block">
@@ -397,8 +483,13 @@ export default function CampaignDetailPage() {
                               </div>
                             </div>
 
-                            <Button onClick={handleDonate} className="w-full" size="lg" disabled={!donationAmount}>
-                              Complete Donation
+                            <Button
+                              onClick={handleDonate}
+                              className="w-full"
+                              size="lg"
+                              disabled={!donationAmount || donationAmount <= 0 || isDonating}
+                            >
+                              {isDonating ? 'Processing...' : 'Complete Donation'}
                             </Button>
                           </div>
                         </>
@@ -414,16 +505,10 @@ export default function CampaignDetailPage() {
                           <Card className="bg-muted/50 mb-6">
                             <CardContent className="p-4 text-left">
                               <p className="text-xs text-muted-foreground mb-1">Confirmation Number</p>
-                              <p className="font-mono font-medium">DON-{Date.now().toString(36).toUpperCase()}</p>
+                              <p className="font-mono font-medium">{confirmationNumber}</p>
                             </CardContent>
                           </Card>
-                          <Button 
-                            onClick={() => {
-                              setShowDonationSuccess(false)
-                              setDonationDialogOpen(false)
-                            }}
-                            className="w-full"
-                          >
+                          <Button onClick={() => setDonationDialogOpen(false)} className="w-full">
                             Done
                           </Button>
                         </div>
@@ -432,8 +517,8 @@ export default function CampaignDetailPage() {
                   </Dialog>
 
                   <div className="flex gap-2">
-                    <Button 
-                      variant={isFavourite ? "default" : "outline"} 
+                    <Button
+                      variant={isFavourite ? "default" : "outline"}
                       className="flex-1"
                       onClick={() => setIsFavourite(!isFavourite)}
                     >
@@ -448,7 +533,7 @@ export default function CampaignDetailPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-48">
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => navigator.clipboard.writeText(window.location.href)}>
                           <Copy className="h-4 w-4 mr-2" />
                           Copy Link
                         </DropdownMenuItem>
@@ -493,7 +578,6 @@ export default function CampaignDetailPage() {
                           <CheckCircle2 className="h-4 w-4 text-primary" />
                         )}
                       </p>
-                      <p className="text-sm text-muted-foreground">{campaign.location}</p>
                     </div>
                   </div>
                   <Button variant="outline" className="w-full mt-4" size="sm">
@@ -504,26 +588,6 @@ export default function CampaignDetailPage() {
               </Card>
             </div>
           </div>
-
-          {/* Related Campaigns */}
-          {relatedCampaigns.length > 0 && (
-            <section className="mt-16">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-foreground">Related Campaigns</h2>
-                <Link href={`/browse?category=${campaign.category}`}>
-                  <Button variant="ghost" size="sm">
-                    View All
-                    <ArrowLeft className="h-4 w-4 ml-1 rotate-180" />
-                  </Button>
-                </Link>
-              </div>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {relatedCampaigns.map((relatedCampaign) => (
-                  <CampaignCard key={relatedCampaign.id} campaign={relatedCampaign} />
-                ))}
-              </div>
-            </section>
-          )}
         </div>
       </main>
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
 import Link from "next/link"
 import {
   PlusCircle,
@@ -49,25 +49,47 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { DashboardLayout } from "@/components/layout/dashboard-sidebar"
-import { campaigns, users, categories } from "@/lib/mock-data"
+import { useAuth } from "@/components/providers/session-provider"
+import { categories } from "@/lib/mock-data"
 
-const fundRaiserUser = users.find((u) => u.role === "fund_raiser") || users[1]
-
-const allCampaigns = campaigns.slice(0, 12)
-const draftCampaigns = allCampaigns.filter((c) => c.status === "draft")
-const activeCampaigns = allCampaigns.filter((c) => c.status === "active")
-const completedCampaigns = allCampaigns.filter((c) => c.status === "completed")
-const serviceTypes = Array.from(new Set(allCampaigns.map((campaign) => campaign.serviceType))).sort()
+type DbCampaign = {
+  id: string
+  title: string
+  summary: string
+  category: string
+  serviceType: string
+  status: string
+  targetAmount: number
+  raisedAmount: number
+  donorCount: number
+  views: number
+  favouriteCount: number
+  startDate: string
+  endDate: string
+  coverImage: string
+  createdAt: string
+}
 
 type SortOption = "newest" | "ending-soon" | "most-viewed" | "highest-raised" | "most-favourited"
 
 export default function ManageCampaignsPage() {
+  const { user: sessionUser } = useAuth()
+  const [allCampaigns, setAllCampaigns] = useState<DbCampaign[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [categoryFilter, setCategoryFilter] = useState<string>("all")
   const [serviceTypeFilter, setServiceTypeFilter] = useState<string>("all")
   const [sortBy, setSortBy] = useState<SortOption>("newest")
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [selectedCampaign, setSelectedCampaign] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch('/api/fund-raiser/campaigns')
+      .then((r) => r.json())
+      .then((data) => setAllCampaigns(data.campaigns ?? []))
+      .catch(() => {})
+      .finally(() => setIsLoading(false))
+  }, [])
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -87,7 +109,7 @@ export default function ManageCampaignsPage() {
   const hasActiveFilters =
     searchQuery.trim().length > 0 || categoryFilter !== "all" || serviceTypeFilter !== "all" || sortBy !== "newest"
 
-  const getSortedCampaigns = (campaignList: typeof campaigns) => {
+  const getSortedCampaigns = (campaignList: DbCampaign[]) => {
     const filtered = campaignList.filter((campaign) => {
       const query = searchQuery.trim().toLowerCase()
       const matchesSearch =
@@ -122,12 +144,13 @@ export default function ManageCampaignsPage() {
     })
   }
 
-  const filteredAllCampaigns = useMemo(() => getSortedCampaigns(allCampaigns), [searchQuery, categoryFilter, serviceTypeFilter, sortBy])
-  const filteredDraftCampaigns = useMemo(() => getSortedCampaigns(draftCampaigns), [searchQuery, categoryFilter, serviceTypeFilter, sortBy])
-  const filteredActiveCampaigns = useMemo(() => getSortedCampaigns(activeCampaigns), [searchQuery, categoryFilter, serviceTypeFilter, sortBy])
-  const filteredCompletedCampaigns = useMemo(() => getSortedCampaigns(completedCampaigns), [searchQuery, categoryFilter, serviceTypeFilter, sortBy])
+  const filteredAllCampaigns = useMemo(() => getSortedCampaigns(allCampaigns), [allCampaigns, searchQuery, categoryFilter, serviceTypeFilter, sortBy])
+  const filteredDraftCampaigns = useMemo(() => getSortedCampaigns(allCampaigns.filter(c => c.status === 'draft')), [allCampaigns, searchQuery, categoryFilter, serviceTypeFilter, sortBy])
+  const filteredActiveCampaigns = useMemo(() => getSortedCampaigns(allCampaigns.filter(c => c.status === 'active')), [allCampaigns, searchQuery, categoryFilter, serviceTypeFilter, sortBy])
+  const filteredPendingCampaigns = useMemo(() => getSortedCampaigns(allCampaigns.filter(c => c.status === 'pending_review')), [allCampaigns, searchQuery, categoryFilter, serviceTypeFilter, sortBy])
+  const filteredCompletedCampaigns = useMemo(() => getSortedCampaigns(allCampaigns.filter(c => c.status === 'completed')), [allCampaigns, searchQuery, categoryFilter, serviceTypeFilter, sortBy])
 
-  const CampaignCard = ({ campaign }: { campaign: (typeof campaigns)[0] }) => {
+  const CampaignCard = ({ campaign }: { campaign: DbCampaign }) => {
     const progress = (campaign.raisedAmount / campaign.targetAmount) * 100
     const daysRemaining = Math.max(
       0,
@@ -288,12 +311,11 @@ export default function ManageCampaignsPage() {
   return (
     <DashboardLayout
       role="fund_raiser"
-      user={{
-        name: fundRaiserUser.displayName,
-        email: fundRaiserUser.email,
-        avatar: fundRaiserUser.avatar,
-        role: "Fund Raiser",
-      }}
+      user={sessionUser ? {
+        name: `${sessionUser.firstName} ${sessionUser.lastName}`,
+        email: sessionUser.email,
+        role: 'fund_raiser',
+      } : undefined}
     >
       <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
@@ -342,7 +364,7 @@ export default function ManageCampaignsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Service Types</SelectItem>
-              {serviceTypes.map((serviceType) => (
+              {Array.from(new Set(allCampaigns.map((c) => c.serviceType))).sort().map((serviceType) => (
                 <SelectItem key={serviceType} value={serviceType}>
                   {serviceType}
                 </SelectItem>
@@ -371,12 +393,17 @@ export default function ManageCampaignsPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="active" className="w-full">
+      {isLoading && (
+        <div className="py-16 text-center text-muted-foreground">Loading campaigns...</div>
+      )}
+
+      {!isLoading && <Tabs defaultValue="all" className="w-full">
         <TabsList className="mb-6">
           <TabsTrigger value="all">All ({allCampaigns.length})</TabsTrigger>
-          <TabsTrigger value="draft">Draft ({draftCampaigns.length})</TabsTrigger>
-          <TabsTrigger value="active">Active ({activeCampaigns.length})</TabsTrigger>
-          <TabsTrigger value="completed">Completed ({completedCampaigns.length})</TabsTrigger>
+          <TabsTrigger value="pending">Pending Review ({filteredPendingCampaigns.length})</TabsTrigger>
+          <TabsTrigger value="draft">Draft ({filteredDraftCampaigns.length})</TabsTrigger>
+          <TabsTrigger value="active">Active ({filteredActiveCampaigns.length})</TabsTrigger>
+          <TabsTrigger value="completed">Completed ({filteredCompletedCampaigns.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="all">
@@ -415,6 +442,18 @@ export default function ManageCampaignsPage() {
           )}
         </TabsContent>
 
+        <TabsContent value="pending">
+          {filteredPendingCampaigns.length > 0 ? (
+            <div className="space-y-4">
+              {filteredPendingCampaigns.map((campaign) => (
+                <CampaignCard key={campaign.id} campaign={campaign} />
+              ))}
+            </div>
+          ) : (
+            <EmptyState status="pending_review" />
+          )}
+        </TabsContent>
+
         <TabsContent value="completed">
           {filteredCompletedCampaigns.length > 0 ? (
             <div className="space-y-4">
@@ -426,7 +465,7 @@ export default function ManageCampaignsPage() {
             <EmptyState status="completed" />
           )}
         </TabsContent>
-      </Tabs>
+      </Tabs>}
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>

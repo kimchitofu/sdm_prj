@@ -46,7 +46,7 @@ model Campaign {
   favouriteCount          Int       @default(0)
   startDate               String
   endDate                 String
-  coverImage              String    @default("")
+  coverImage              String?   @db.LongText
   gallery                 String    @default("[]")
   location                String?
   tags                    String    @default("[]")

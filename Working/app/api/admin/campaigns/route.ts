@@ -60,9 +60,12 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
   }
 
+  // 'approved' in the review UI means the campaign goes live → store as 'active'
+  const dbStatus = status === 'approved' ? 'active' : status
+
   const campaign = await prisma.campaign.update({
     where: { id: campaignId },
-    data: { status },
+    data: { status: dbStatus },
   })
 
   return NextResponse.json({ campaign })

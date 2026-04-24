@@ -36,10 +36,9 @@ import {
 } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog"
 import { DashboardLayout } from "@/components/layout/dashboard-sidebar"
-import { categories, users } from "@/lib/mock-data"
+import { categories } from "@/lib/mock-data"
 import { getAllCitiesOfCountry, getCountries } from "@countrystatecity/countries-browser"
-
-const fundRaiserUser = users.find((u) => u.role === "fund_raiser") || users[1]
+import { useAuth } from "@/components/providers/session-provider"
 
 const serviceTypes = [
   { id: "medical-bills", name: "Medical Bills" },
@@ -104,6 +103,7 @@ const initialFormData = {
 
 export default function CreateCampaignPage() {
   const router = useRouter()
+  const { user: sessionUser } = useAuth()
   const [currentStep, setCurrentStep] = useState(1)
   const [showSuccess, setShowSuccess] = useState(false)
   const [formData, setFormData] = useState(initialFormData)
@@ -356,12 +356,34 @@ export default function CreateCampaignPage() {
     )
   }
 
-  const handleSubmit = (isDraft: boolean) => {
+  const handleSubmit = async (isDraft: boolean) => {
     if (!isDraft && !validateBeforePublish()) {
       const firstErrorStep = [1, 2, 3].find((step) => !validateStep(step)) || 1
       setCurrentStep(firstErrorStep)
       return
     }
+
+    const res = await fetch('/api/fund-raiser/campaigns', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: formData.title,
+        summary: formData.summary,
+        description: formData.description,
+        category: formData.category,
+        serviceType: formData.serviceType,
+        targetAmount: formData.targetAmount,
+        startDate: formData.startDate,
+        endDate: formData.endDate,
+        beneficiaryName: formData.beneficiaryName,
+        beneficiaryRelationship: formData.beneficiaryRelationship,
+        location: resolvedLocation,
+        coverImage: formData.coverImagePreview,
+        isDraft,
+      }),
+    })
+
+    if (!res.ok) return
 
     setShowSuccess(true)
     setTimeout(() => {
@@ -409,12 +431,11 @@ export default function CreateCampaignPage() {
   return (
     <DashboardLayout
       role="fund_raiser"
-      user={{
-        name: fundRaiserUser.displayName,
-        email: fundRaiserUser.email,
-        avatar: fundRaiserUser.avatar,
-        role: "Fund Raiser",
-      }}
+      user={sessionUser ? {
+        name: `${sessionUser.firstName} ${sessionUser.lastName}`,
+        email: sessionUser.email,
+        role: 'fund_raiser',
+      } : undefined}
     >
       <div className="space-y-6">
         <div className="mb-8">

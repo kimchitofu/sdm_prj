@@ -62,12 +62,15 @@ function formatCurrency(amount: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(amount)
 }
 
-const statusConfig: Record<ReviewStatus, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
+const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   pending_review: { label: 'Pending Review', variant: 'secondary' },
   under_review: { label: 'Under Review', variant: 'default' },
   approved: { label: 'Approved', variant: 'default' },
+  active: { label: 'Approved (Live)', variant: 'default' },
   rejected: { label: 'Rejected', variant: 'destructive' },
   on_hold: { label: 'On Hold', variant: 'destructive' },
+  draft: { label: 'Draft', variant: 'outline' },
+  completed: { label: 'Completed', variant: 'outline' },
 }
 
 export default function CampaignReviewPage() {
@@ -250,7 +253,7 @@ export default function CampaignReviewPage() {
             </TableHeader>
             <TableBody>
               {filtered.map(review => {
-                const sc = statusConfig[review.status as keyof typeof statusConfig] ?? { label: review.status, variant: 'secondary' as const }
+                const sc = statusConfig[review.status ] ?? { label: review.status, variant: 'secondary' as const }
                 return (
                   <TableRow key={review.id}>
                     <TableCell className="font-medium max-w-[200px]">
@@ -341,8 +344,8 @@ export default function CampaignReviewPage() {
                 <h3 className="font-semibold text-lg">{selectedReview.campaignTitle}</h3>
                 <div className="flex gap-2 mt-1 flex-wrap">
                   <Badge variant="secondary">{selectedReview.campaignCategory}</Badge>
-                  <Badge variant={(statusConfig[selectedReview.status as keyof typeof statusConfig] ?? { variant: 'secondary' }).variant}>
-                    {(statusConfig[selectedReview.status as keyof typeof statusConfig] ?? { label: selectedReview.status }).label}
+                  <Badge variant={(statusConfig[selectedReview.status ] ?? { variant: 'secondary' }).variant}>
+                    {(statusConfig[selectedReview.status ] ?? { label: selectedReview.status }).label}
                   </Badge>
                 </div>
               </div>
