@@ -394,10 +394,10 @@ export default function AdminUsersPage() {
                       )}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {new Date(user.createdAt).toLocaleDateString()}
+                      {new Date(user.createdAt).toLocaleDateString('en-AU')}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {new Date(user.lastLoginAt || user.createdAt).toLocaleDateString()}
+                      {new Date(user.lastLoginAt || user.createdAt).toLocaleDateString('en-AU')}
                     </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
@@ -512,11 +512,11 @@ export default function AdminUsersPage() {
                   </div>
                   <div>
                     <p className="text-muted-foreground">Joined</p>
-                    <p className="font-medium">{new Date(selectedUser.createdAt).toLocaleDateString()}</p>
+                    <p className="font-medium">{new Date(selectedUser.createdAt).toLocaleDateString('en-AU')}</p>
                   </div>
                   <div>
                     <p className="text-muted-foreground">Last Login</p>
-                    <p className="font-medium">{new Date(selectedUser.lastLoginAt || selectedUser.createdAt).toLocaleDateString()}</p>
+                    <p className="font-medium">{new Date(selectedUser.lastLoginAt || selectedUser.createdAt).toLocaleDateString('en-AU')}</p>
                   </div>
                 </div>
 

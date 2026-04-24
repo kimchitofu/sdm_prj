@@ -290,7 +290,7 @@ export default function ReportsQueuePage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-muted-foreground text-sm">
-                        {new Date(report.createdAt).toLocaleDateString()}
+                        {new Date(report.createdAt).toLocaleDateString('en-AU')}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
@@ -363,7 +363,7 @@ export default function ReportsQueuePage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-muted-foreground text-sm">
-                        {new Date(report.createdAt).toLocaleDateString()}
+                        {new Date(report.createdAt).toLocaleDateString('en-AU')}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
@@ -428,7 +428,7 @@ export default function ReportsQueuePage() {
                 </div>
                 <div>
                   <p className="text-muted-foreground">Reported</p>
-                  <p className="font-medium">{new Date(selectedCReport.createdAt).toLocaleDateString()}</p>
+                  <p className="font-medium">{new Date(selectedCReport.createdAt).toLocaleDateString('en-AU')}</p>
                 </div>
               </div>
               <Separator />

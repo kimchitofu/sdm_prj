@@ -299,7 +299,7 @@ export default function CategoriesPage() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {new Date(category.createdAt).toLocaleDateString()}
+                    {new Date(category.createdAt).toLocaleDateString('en-AU')}
                   </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>

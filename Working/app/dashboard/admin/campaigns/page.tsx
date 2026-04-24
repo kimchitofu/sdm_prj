@@ -275,7 +275,7 @@ export default function CampaignReviewPage() {
                       <Badge variant={sc.variant} className="text-xs">{sc.label}</Badge>
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
-                      {new Date(review.submittedAt).toLocaleDateString()}
+                      {new Date(review.submittedAt).toLocaleDateString('en-AU')}
                     </TableCell>
                     <TableCell>
                       {(review.flaggedIssues?.length ?? 0) > 0 && (
@@ -375,7 +375,7 @@ export default function CampaignReviewPage() {
                   <Calendar className="h-4 w-4 text-muted-foreground" />
                   <div>
                     <p className="text-muted-foreground">Submitted</p>
-                    <p className="font-medium">{new Date(selectedReview.submittedAt).toLocaleDateString()}</p>
+                    <p className="font-medium">{new Date(selectedReview.submittedAt).toLocaleDateString('en-AU')}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">

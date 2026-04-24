@@ -255,7 +255,7 @@ export default function AdminDashboardPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-muted-foreground text-sm">
-                        {new Date(d.createdAt).toLocaleDateString()}
+                        {new Date(d.createdAt).toLocaleDateString('en-AU')}
                       </TableCell>
                     </TableRow>
                   ))}

@@ -287,7 +287,7 @@ export default function DoneeDonationsPage() {
                     return (
                       <TableRow key={donation.id}>
                         <TableCell className="font-medium">
-                          {new Date(donation.createdAt).toLocaleDateString()}
+                          {new Date(donation.createdAt).toLocaleDateString('en-AU')}
                         </TableCell>
                         <TableCell>
                           <Link 
@@ -339,7 +339,7 @@ export default function DoneeDonationsPage() {
                     <div className="flex items-start justify-between mb-3">
                       <Badge variant="outline">{donation.campaign.category}</Badge>
                       <span className="text-sm text-muted-foreground">
-                        {new Date(donation.createdAt).toLocaleDateString()}
+                        {new Date(donation.createdAt).toLocaleDateString('en-AU')}
                       </span>
                     </div>
                     <Link href={`/campaign/${donation.campaign.id}`}>

@@ -236,7 +236,7 @@ export default function CampaignDetailPage() {
                   </div>
                   <div className="flex items-center gap-1">
                     <Calendar className="h-4 w-4" />
-                    Created {new Date(campaign.createdAt).toLocaleDateString()}
+                    Created {new Date(campaign.createdAt).toLocaleDateString('en-AU')}
                   </div>
                 </div>
               </div>
@@ -309,7 +309,7 @@ export default function CampaignDetailPage() {
                           <div className="flex items-start justify-between mb-3">
                             <h4 className="font-semibold text-foreground">{update.title}</h4>
                             <span className="text-xs text-muted-foreground">
-                              {new Date(update.createdAt).toLocaleDateString()}
+                              {new Date(update.createdAt).toLocaleDateString('en-AU')}
                             </span>
                           </div>
                           <p className="text-muted-foreground text-sm">{update.content}</p>
@@ -347,7 +347,7 @@ export default function CampaignDetailPage() {
                                 </span>
                               </div>
                               <p className="text-xs text-muted-foreground">
-                                {new Date(donation.createdAt).toLocaleDateString()}
+                                {new Date(donation.createdAt).toLocaleDateString('en-AU')}
                               </p>
                               {donation.message && (
                                 <p className="text-sm text-muted-foreground mt-2 italic">

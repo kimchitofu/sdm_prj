@@ -154,8 +154,8 @@ function exportReport(type: ReportType, startDate: string, endDate: string) {
         u.id, u.displayName, u.email, u.role, u.status,
         u.isVerified ? 'Yes' : 'No',
         u.location || '',
-        new Date(u.createdAt).toLocaleDateString(),
-        u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString() : '',
+        new Date(u.createdAt).toLocaleDateString('en-AU'),
+        u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString('en-AU') : '',
       ])
       downloadCSV(`users_report${dateRange}.csv`,
         ['ID', 'Name', 'Email', 'Role', 'Status', 'Verified', 'Location', 'Joined', 'Last Login'],
@@ -168,8 +168,8 @@ function exportReport(type: ReportType, startDate: string, endDate: string) {
         c.id, c.title, c.category, c.serviceType, c.status,
         c.targetAmount, c.raisedAmount, c.donorCount, c.views,
         c.organiser.name,
-        new Date(c.createdAt).toLocaleDateString(),
-        c.endDate ? new Date(c.endDate).toLocaleDateString() : '',
+        new Date(c.createdAt).toLocaleDateString('en-AU'),
+        c.endDate ? new Date(c.endDate).toLocaleDateString('en-AU') : '',
         c.location || '',
       ])
       downloadCSV(`campaigns_report${dateRange}.csv`,
@@ -184,7 +184,7 @@ function exportReport(type: ReportType, startDate: string, endDate: string) {
         d.category, d.amount, d.status,
         d.isAnonymous ? 'Yes' : 'No',
         d.message || '',
-        new Date(d.createdAt).toLocaleDateString(),
+        new Date(d.createdAt).toLocaleDateString('en-AU'),
       ])
       downloadCSV(`donations_report${dateRange}.csv`,
         ['ID', 'Donor', 'Campaign', 'Category', 'Amount ($)', 'Status', 'Anonymous', 'Message', 'Date'],
@@ -194,11 +194,11 @@ function exportReport(type: ReportType, startDate: string, endDate: string) {
     case 'reports': {
       const cRows = filterByDate(campaignReports).map(r => [
         r.id, 'Campaign', r.campaignTitle, r.reportedByName, r.reason,
-        r.status, r.resolution || '', new Date(r.createdAt).toLocaleDateString(),
+        r.status, r.resolution || '', new Date(r.createdAt).toLocaleDateString('en-AU'),
       ])
       const mRows = filterByDate(messageReports).map(r => [
         r.id, 'Message', r.messageContent.slice(0, 60), r.reportedByName, r.reason,
-        r.status, '', new Date(r.createdAt).toLocaleDateString(),
+        r.status, '', new Date(r.createdAt).toLocaleDateString('en-AU'),
       ])
       downloadCSV(`flagged_content_report${dateRange}.csv`,
         ['ID', 'Type', 'Content/Campaign', 'Reported By', 'Reason', 'Status', 'Resolution', 'Date'],
@@ -234,7 +234,7 @@ export default function ExportReportsPage() {
           headers: ['Name', 'Email', 'Role', 'Status', 'Joined'],
           rows: users.slice(0, 5).map(u => [
             u.displayName, u.email, u.role, u.status,
-            new Date(u.createdAt).toLocaleDateString(),
+            new Date(u.createdAt).toLocaleDateString('en-AU'),
           ])
         }
       case 'campaigns':
@@ -254,7 +254,7 @@ export default function ExportReportsPage() {
             d.isAnonymous ? 'Anonymous' : d.donorName,
             d.campaignTitle.slice(0, 30) + '...',
             formatCurrency(d.amount), d.status,
-            new Date(d.createdAt).toLocaleDateString(),
+            new Date(d.createdAt).toLocaleDateString('en-AU'),
           ])
         }
       case 'reports':
@@ -263,11 +263,11 @@ export default function ExportReportsPage() {
           rows: [
             ...campaignReports.slice(0, 3).map(r => [
               'Campaign', r.campaignTitle.slice(0, 30), r.reason, r.status,
-              new Date(r.createdAt).toLocaleDateString(),
+              new Date(r.createdAt).toLocaleDateString('en-AU'),
             ]),
             ...messageReports.slice(0, 2).map(r => [
               'Message', r.messageContent.slice(0, 30) + '...', r.reason, r.status,
-              new Date(r.createdAt).toLocaleDateString(),
+              new Date(r.createdAt).toLocaleDateString('en-AU'),
             ]),
           ]
         }
