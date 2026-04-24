@@ -28,19 +28,19 @@ import {
 } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog"
 import { DashboardLayout } from "@/components/layout/dashboard-sidebar"
-import { users } from "@/lib/mock-data"
-
-const fundRaiserUser = users.find((u) => u.role === "fund_raiser") || users[1]
+import { useAuth } from "@/components/providers/session-provider"
+import type { UserRole } from "@/lib/types"
 
 export default function ProfileSettingsPage() {
-  const displayName = useMemo(() => {
-    return (fundRaiserUser as { displayName?: string; name?: string })?.displayName ||
-      (fundRaiserUser as { displayName?: string; name?: string })?.name ||
-      "Fund Raiser User"
-  }, [])
+  const { user: sessionUser } = useAuth()
 
-  const email = (fundRaiserUser as { email?: string }).email || "user@example.com"
-  const avatar = (fundRaiserUser as { avatar?: string }).avatar
+  const displayName = useMemo(() => {
+    if (sessionUser) return `${sessionUser.firstName} ${sessionUser.lastName}`
+    return "User"
+  }, [sessionUser])
+
+  const email = sessionUser?.email ?? "user@example.com"
+  const avatar = undefined
 
   const [showSuccess, setShowSuccess] = useState(false)
   const [formData, setFormData] = useState({
@@ -67,7 +67,7 @@ export default function ProfileSettingsPage() {
 
   return (
     <DashboardLayout
-      role="fund_raiser"
+      role={(sessionUser?.role ?? 'donee') as UserRole}
       user={{
         name: displayName,
         email,

@@ -181,6 +181,7 @@ export default function AdminUsersPage() {
     switch (status) {
       case 'active': return 'default' as const
       case 'suspended': return 'destructive' as const
+      case 'frozen': return 'destructive' as const
       case 'deactivated': return 'secondary' as const
       default: return 'outline' as const
     }
@@ -214,8 +215,28 @@ export default function AdminUsersPage() {
     setActionDialogOpen(true)
   }
 
-  const confirmAction = () => {
+  const confirmAction = async () => {
+    if (!selectedUser || !actionType) return
     setActionDialogOpen(false)
+
+    try {
+      const res = await fetch(`/api/admin/users/${selectedUser.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: actionType }),
+      })
+
+      if (res.ok) {
+        const { status: newStatus } = await res.json()
+        setAllUsers((prev) =>
+          prev.map((u) => (u.id === selectedUser.id ? { ...u, status: newStatus } : u))
+        )
+        if (actionType === 'freeze' || actionType === 'suspend') {
+          setFlaggedUserIds((prev) => new Set([...prev, selectedUser.id]))
+        }
+      }
+    } catch {}
+
     setSelectedUser(null)
     setActionType("")
   }
@@ -301,6 +322,7 @@ export default function AdminUsersPage() {
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="frozen">Frozen</SelectItem>
                 <SelectItem value="suspended">Suspended</SelectItem>
                 <SelectItem value="deactivated">Deactivated</SelectItem>
               </SelectContent>
@@ -405,6 +427,11 @@ export default function AdminUsersPage() {
                                 Suspend User
                               </DropdownMenuItem>
                             </>
+                          ) : user.status === 'frozen' ? (
+                            <DropdownMenuItem onClick={() => handleAction(user, 'unfreeze')}>
+                              <UserCheck className="h-4 w-4 mr-2" />
+                              Unfreeze Account
+                            </DropdownMenuItem>
                           ) : user.status === 'suspended' ? (
                             <DropdownMenuItem onClick={() => handleAction(user, 'activate')}>
                               <UserCheck className="h-4 w-4 mr-2" />
@@ -517,6 +544,11 @@ export default function AdminUsersPage() {
                         Suspend
                       </Button>
                     </>
+                  ) : selectedUser.status === 'frozen' ? (
+                    <Button variant="outline" size="sm" onClick={() => { setShowUserDetail(false); handleAction(selectedUser, 'unfreeze') }}>
+                      <UserCheck className="h-4 w-4 mr-2" />
+                      Unfreeze
+                    </Button>
                   ) : (
                     <Button variant="outline" size="sm" onClick={() => { setShowUserDetail(false); handleAction(selectedUser, 'activate') }}>
                       <UserCheck className="h-4 w-4 mr-2" />
