@@ -147,7 +147,6 @@ export default function ManageCampaignsPage() {
   const filteredAllCampaigns = useMemo(() => getSortedCampaigns(allCampaigns), [allCampaigns, searchQuery, categoryFilter, serviceTypeFilter, sortBy])
   const filteredDraftCampaigns = useMemo(() => getSortedCampaigns(allCampaigns.filter(c => c.status === 'draft')), [allCampaigns, searchQuery, categoryFilter, serviceTypeFilter, sortBy])
   const filteredActiveCampaigns = useMemo(() => getSortedCampaigns(allCampaigns.filter(c => c.status === 'active')), [allCampaigns, searchQuery, categoryFilter, serviceTypeFilter, sortBy])
-  const filteredPendingCampaigns = useMemo(() => getSortedCampaigns(allCampaigns.filter(c => c.status === 'pending_review')), [allCampaigns, searchQuery, categoryFilter, serviceTypeFilter, sortBy])
   const filteredCompletedCampaigns = useMemo(() => getSortedCampaigns(allCampaigns.filter(c => c.status === 'completed')), [allCampaigns, searchQuery, categoryFilter, serviceTypeFilter, sortBy])
 
   const CampaignCard = ({ campaign }: { campaign: DbCampaign }) => {
@@ -400,7 +399,6 @@ export default function ManageCampaignsPage() {
       {!isLoading && <Tabs defaultValue="all" className="w-full">
         <TabsList className="mb-6">
           <TabsTrigger value="all">All ({allCampaigns.length})</TabsTrigger>
-          <TabsTrigger value="pending">Pending Review ({filteredPendingCampaigns.length})</TabsTrigger>
           <TabsTrigger value="draft">Draft ({filteredDraftCampaigns.length})</TabsTrigger>
           <TabsTrigger value="active">Active ({filteredActiveCampaigns.length})</TabsTrigger>
           <TabsTrigger value="completed">Completed ({filteredCompletedCampaigns.length})</TabsTrigger>
@@ -439,18 +437,6 @@ export default function ManageCampaignsPage() {
             </div>
           ) : (
             <EmptyState status="active" />
-          )}
-        </TabsContent>
-
-        <TabsContent value="pending">
-          {filteredPendingCampaigns.length > 0 ? (
-            <div className="space-y-4">
-              {filteredPendingCampaigns.map((campaign) => (
-                <CampaignCard key={campaign.id} campaign={campaign} />
-              ))}
-            </div>
-          ) : (
-            <EmptyState status="pending_review" />
           )}
         </TabsContent>
 

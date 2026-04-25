@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
+import Link from "next/link"
 import {
   Search,
   Filter,
@@ -18,6 +19,7 @@ import {
   Lock,
   Clock,
   AlertTriangle,
+  ExternalLink,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -409,7 +411,13 @@ export default function AdminUsersPage() {
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => openUserDetail(user)}>
                             <Eye className="h-4 w-4 mr-2" />
-                            View Details & History
+                            Quick View
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link href={`/dashboard/admin/users/${user.id}`}>
+                              <ExternalLink className="h-4 w-4 mr-2" />
+                              Full Profile & History
+                            </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem>
                             <Mail className="h-4 w-4 mr-2" />
