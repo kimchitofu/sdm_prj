@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
+import { LiveCampaignProgress } from "@/components/campaigns/live-campaign-progress";
+
 
 export default async function CampaignDetailsPage({
   params,
@@ -37,20 +39,12 @@ export default async function CampaignDetailsPage({
         <p className="mt-4">{campaign.description}</p>
       </section>
 
-      <section>
-        <h2 className="text-2xl font-semibold">Campaign Progress</h2>
-        <p>
-          ${campaign.raisedAmount.toFixed(2)} raised of $
-          {campaign.targetAmount.toFixed(2)}
-        </p>
-        <div className="w-full bg-gray-200 rounded-full h-4 mt-2">
-          <div
-            className="bg-blue-600 h-4 rounded-full"
-            style={{ width: `${Math.min(progress, 100)}%` }}
-          />
-        </div>
-        <p className="mt-2">{progress}% funded</p>
-      </section>
+      <LiveCampaignProgress
+        campaignId={campaign.id}
+        initialRaisedAmount={campaign.raisedAmount}
+        targetAmount={campaign.targetAmount}
+        initialDonorCount={campaign.donorCount}
+      />
 
       <section>
         <h2 className="text-2xl font-semibold">Updates</h2>
