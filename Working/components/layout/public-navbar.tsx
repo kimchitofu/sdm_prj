@@ -2,12 +2,16 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Menu,
   X,
   LayoutDashboard,
   LogOut,
+  Info,
+  AlertTriangle,
+  Wrench,
+  Siren,
 } from 'lucide-react'
 import { Logo } from '@/components/brand/logo'
 import { Button } from '@/components/ui/button'
@@ -47,10 +51,35 @@ function getDashboardHref(role: string) {
   }
 }
 
+interface ActiveAnnouncement {
+  id: string
+  title: string
+  message: string
+  type: string
+}
+
+const bannerStyle: Record<string, { bg: string; text: string; icon: React.ReactNode }> = {
+  info:        { bg: 'bg-blue-600',   text: 'text-white', icon: <Info className="h-4 w-4 shrink-0" /> },
+  warning:     { bg: 'bg-yellow-500', text: 'text-white', icon: <AlertTriangle className="h-4 w-4 shrink-0" /> },
+  maintenance: { bg: 'bg-orange-500', text: 'text-white', icon: <Wrench className="h-4 w-4 shrink-0" /> },
+  urgent:      { bg: 'bg-red-600',    text: 'text-white', icon: <Siren className="h-4 w-4 shrink-0" /> },
+}
+
 export function PublicNavbar() {
   const pathname = usePathname()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const { user: sessionUser } = useAuth()
+  const [announcements, setAnnouncements] = useState<ActiveAnnouncement[]>([])
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    fetch('/api/announcements')
+      .then(r => r.json())
+      .then(d => setAnnouncements(d.announcements ?? []))
+      .catch(() => {})
+  }, [])
+
+  const visible = announcements.filter(a => !dismissed.has(a.id))
 
   const handleSignOut = async () => {
     await fetch('/api/auth/logout', { method: 'POST' })
@@ -59,7 +88,28 @@ export function PublicNavbar() {
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <div className="sticky top-0 z-50 w-full">
+      {/* Announcement Banners */}
+      {visible.map(a => {
+        const style = bannerStyle[a.type] ?? bannerStyle.info
+        return (
+          <div key={a.id} className={`flex items-center justify-between gap-3 px-4 py-2 text-sm ${style.bg} ${style.text}`}>
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              {style.icon}
+              <span className="font-semibold shrink-0">{a.title}:</span>
+              <span className="truncate">{a.message}</span>
+            </div>
+            <button
+              onClick={() => setDismissed(prev => new Set([...prev, a.id]))}
+              className="shrink-0 rounded p-0.5 hover:bg-white/20"
+              aria-label="Dismiss"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )
+      })}
+    <header className="w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <nav className="container mx-auto flex h-16 items-center justify-between px-4">
         <div className="flex items-center gap-8">
           <Logo />
@@ -224,5 +274,6 @@ export function PublicNavbar() {
         </Sheet>
       </nav>
     </header>
+    </div>
   )
 }

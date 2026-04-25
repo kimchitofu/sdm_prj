@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
       beneficiaryRelationship: beneficiaryRelationship || null,
       location: location || null,
       coverImage: coverImage || '',
-      status: isDraft ? 'draft' : 'pending_review',
+      status: isDraft ? 'draft' : 'active',
       organiserId: session.id,
     },
   })
