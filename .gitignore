@@ -35,3 +35,6 @@ build/
 .DS_Store
 Working/.next/
 Working/node_modules/
+
+# Claude Code local settings (personal per-machine)
+.claude/settings.local.json

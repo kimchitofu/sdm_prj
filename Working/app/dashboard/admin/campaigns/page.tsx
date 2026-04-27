@@ -62,12 +62,15 @@ function formatCurrency(amount: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(amount)
 }
 
-const statusConfig: Record<ReviewStatus, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
+const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   pending_review: { label: 'Pending Review', variant: 'secondary' },
   under_review: { label: 'Under Review', variant: 'default' },
   approved: { label: 'Approved', variant: 'default' },
+  active: { label: 'Approved (Live)', variant: 'default' },
   rejected: { label: 'Rejected', variant: 'destructive' },
   on_hold: { label: 'On Hold', variant: 'destructive' },
+  draft: { label: 'Draft', variant: 'outline' },
+  completed: { label: 'Completed', variant: 'outline' },
 }
 
 export default function CampaignReviewPage() {
@@ -250,7 +253,7 @@ export default function CampaignReviewPage() {
             </TableHeader>
             <TableBody>
               {filtered.map(review => {
-                const sc = statusConfig[review.status]
+                const sc = statusConfig[review.status ] ?? { label: review.status, variant: 'secondary' as const }
                 return (
                   <TableRow key={review.id}>
                     <TableCell className="font-medium max-w-[200px]">
@@ -272,7 +275,7 @@ export default function CampaignReviewPage() {
                       <Badge variant={sc.variant} className="text-xs">{sc.label}</Badge>
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
-                      {new Date(review.submittedAt).toLocaleDateString()}
+                      {new Date(review.submittedAt).toLocaleDateString('en-AU')}
                     </TableCell>
                     <TableCell>
                       {(review.flaggedIssues?.length ?? 0) > 0 && (
@@ -341,8 +344,8 @@ export default function CampaignReviewPage() {
                 <h3 className="font-semibold text-lg">{selectedReview.campaignTitle}</h3>
                 <div className="flex gap-2 mt-1 flex-wrap">
                   <Badge variant="secondary">{selectedReview.campaignCategory}</Badge>
-                  <Badge variant={statusConfig[selectedReview.status].variant}>
-                    {statusConfig[selectedReview.status].label}
+                  <Badge variant={(statusConfig[selectedReview.status ] ?? { variant: 'secondary' }).variant}>
+                    {(statusConfig[selectedReview.status ] ?? { label: selectedReview.status }).label}
                   </Badge>
                 </div>
               </div>
@@ -372,7 +375,7 @@ export default function CampaignReviewPage() {
                   <Calendar className="h-4 w-4 text-muted-foreground" />
                   <div>
                     <p className="text-muted-foreground">Submitted</p>
-                    <p className="font-medium">{new Date(selectedReview.submittedAt).toLocaleDateString()}</p>
+                    <p className="font-medium">{new Date(selectedReview.submittedAt).toLocaleDateString('en-AU')}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">

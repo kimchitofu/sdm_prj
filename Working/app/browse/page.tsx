@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, Suspense } from 'react'
+import { useState, useMemo, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import {
   Search,
@@ -41,7 +41,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Skeleton } from '@/components/ui/skeleton'
-import { campaigns, categories, getActiveCampaigns } from '@/lib/mock-data'
+import { categories } from '@/lib/mock-data'
 import type { Campaign, CampaignStatus, ServiceType } from '@/lib/types'
 
 const sortOptions = [
@@ -73,9 +73,11 @@ const serviceTypes: { value: ServiceType; label: string }[] = [
 function BrowseContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
-  
+
   const initialCategory = searchParams.get('category') || ''
-  
+
+  const [allCampaigns, setAllCampaigns] = useState<Campaign[]>([])
+  const [isLoadingCampaigns, setIsLoadingCampaigns] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategories, setSelectedCategories] = useState<string[]>(
     initialCategory ? [initialCategory] : []
@@ -88,8 +90,16 @@ function BrowseContent() {
   const [favourites, setFavourites] = useState<string[]>([])
   const [isFilterOpen, setIsFilterOpen] = useState(false)
 
+  useEffect(() => {
+    fetch('/api/campaigns')
+      .then((r) => r.json())
+      .then((data) => setAllCampaigns(data.campaigns ?? []))
+      .catch(() => {})
+      .finally(() => setIsLoadingCampaigns(false))
+  }, [])
+
   const filteredCampaigns = useMemo(() => {
-    let result = [...campaigns]
+    let result = [...allCampaigns]
 
     // Filter by search query
     if (searchQuery) {
@@ -107,9 +117,12 @@ function BrowseContent() {
       result = result.filter((c) => selectedCategories.includes(c.category))
     }
 
-    // Filter by status
+    // Filter by status — treat 'approved' same as 'active' for display
     if (selectedStatuses.length > 0) {
-      result = result.filter((c) => selectedStatuses.includes(c.status))
+      result = result.filter((c) => {
+        const normalised = c.status === 'approved' ? 'active' : c.status
+        return selectedStatuses.includes(normalised as CampaignStatus)
+      })
     }
 
     // Filter by service type
@@ -146,7 +159,7 @@ function BrowseContent() {
     }
 
     return result
-  }, [searchQuery, selectedCategories, selectedStatuses, selectedServiceTypes, progressRange, sortBy])
+  }, [allCampaigns, searchQuery, selectedCategories, selectedStatuses, selectedServiceTypes, progressRange, sortBy])
 
   const handleFavourite = (campaignId: string) => {
     setFavourites((prev) =>
@@ -434,10 +447,16 @@ function BrowseContent() {
             {/* Campaign Grid/List */}
             <div className="flex-1">
               <div className="mb-4 text-sm text-muted-foreground">
-                Showing {filteredCampaigns.length} campaigns
+                {isLoadingCampaigns ? 'Loading campaigns...' : `Showing ${filteredCampaigns.length} campaigns`}
               </div>
 
-              {filteredCampaigns.length === 0 ? (
+              {isLoadingCampaigns ? (
+                <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <Skeleton key={i} className="h-[380px] rounded-lg" />
+                  ))}
+                </div>
+              ) : filteredCampaigns.length === 0 ? (
                 <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-16 text-center">
                   <Heart className="mb-4 h-12 w-12 text-muted-foreground/50" />
                   <h3 className="mb-2 text-lg font-semibold">No campaigns found</h3>

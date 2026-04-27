@@ -49,6 +49,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { DashboardLayout } from "@/components/layout/dashboard-sidebar"
+import { useAuth } from "@/components/providers/session-provider"
+import { categories } from "@/lib/mock-data"
+}
 
 type SortOption = "newest" | "ending-soon" | "most-viewed" | "highest-raised" | "most-favourited"
 
@@ -66,6 +69,7 @@ type CampaignRow = {
   donorCount: number
   views: number
   favouriteCount: number
+  startDate: string
   endDate: string
   coverImage: string
   createdAt: string
@@ -116,6 +120,7 @@ export default function ManageCampaignsPage() {
   const [currentUser, setCurrentUser] = useState<PageUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const { user: sessionUser } = useAuth()
   const [searchQuery, setSearchQuery] = useState("")
   const [categoryFilter, setCategoryFilter] = useState<string>("all")
   const [serviceTypeFilter, setServiceTypeFilter] = useState<string>("all")
@@ -430,7 +435,14 @@ export default function ManageCampaignsPage() {
   }
 
   return (
-    <DashboardLayout role="fund_raiser" user={dashboardUser}>
+    <DashboardLayout
+      role="fund_raiser"
+      user={sessionUser ? {
+        name: `${sessionUser.firstName} ${sessionUser.lastName}`,
+        email: sessionUser.email,
+        role: 'fund_raiser',
+      } : undefined}
+    >
       <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="mb-2 text-2xl font-bold text-foreground md:text-3xl">My Campaigns</h1>
@@ -484,7 +496,7 @@ export default function ManageCampaignsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Service Types</SelectItem>
-              {serviceTypes.map((serviceType) => (
+              {Array.from(new Set(allCampaigns.map((c) => c.serviceType))).sort().map((serviceType) => (
                 <SelectItem key={serviceType} value={serviceType}>
                   {formatServiceType(serviceType)}
                 </SelectItem>

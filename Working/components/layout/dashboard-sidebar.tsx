@@ -21,6 +21,7 @@ import {
   ClipboardCheck,
   Flag,
   Download,
+  Megaphone,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -69,7 +70,7 @@ const fundRaiserNavItems: NavItem[] = [
 const adminNavItems: NavItem[] = [
   { href: "/dashboard/admin", label: "Dashboard", icon: <LayoutDashboard className="h-5 w-5" /> },
   { href: "/dashboard/admin/users", label: "User Management", icon: <Users className="h-5 w-5" /> },
-  { href: "/dashboard/admin/campaigns", label: "Campaign Review", icon: <ClipboardCheck className="h-5 w-5" /> },
+  { href: "/dashboard/admin/announcements", label: "Announcements", icon: <Megaphone className="h-5 w-5" /> },
   { href: "/dashboard/admin/reports-queue", label: "Reports Queue", icon: <Flag className="h-5 w-5" /> },
   { href: "/dashboard/admin/reports", label: "Export Reports", icon: <Download className="h-5 w-5" /> },
 ]
@@ -86,9 +87,9 @@ const getNavItems = (role: UserRole): NavItem[] => {
       return doneeNavItems
     case "fund_raiser":
       return fundRaiserNavItems
-    case "user_admin":
+    case "admin":
       return adminNavItems
-    case "platform_management":
+    case "platform_manager":
       return platformNavItems
     default:
       return []
@@ -101,9 +102,9 @@ const getRoleLabel = (role: UserRole): string => {
       return "Donee"
     case "fund_raiser":
       return "Fund Raiser"
-    case "user_admin":
+    case "admin":
       return "Admin"
-    case "platform_management":
+    case "platform_manager":
       return "Platform Manager"
     default:
       return "User"
@@ -116,6 +117,11 @@ function isNavItemActive(pathname: string, href: string) {
     "/dashboard/fund-raiser",
     "/dashboard/platform",
     "/dashboard/admin",
+    "/dashboard/admin/users",
+    "/dashboard/admin/campaigns",
+    "/dashboard/admin/announcements",
+    "/dashboard/admin/reports-queue",
+    "/dashboard/admin/reports",
   ])
 
   if (exactOnlyRoutes.has(href)) {

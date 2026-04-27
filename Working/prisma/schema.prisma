@@ -24,11 +24,12 @@ model User {
   updatedAt   DateTime  @updatedAt
   lastLoginAt DateTime?
 
-  campaigns   Campaign[]
-  donations   Donation[]
-  favourites  Favourite[]
-  reports     CampaignReport[]
-  auditLogs   AuditLog[]
+  campaigns     Campaign[]
+  donations     Donation[]
+  favourites    Favourite[]
+  reports       CampaignReport[]
+  auditLogs     AuditLog[]
+  announcements Announcement[]
 }
 
 model Campaign {
@@ -46,7 +47,7 @@ model Campaign {
   favouriteCount          Int       @default(0)
   startDate               String
   endDate                 String
-  coverImage              String    @default("")
+  coverImage              String?   @db.LongText
   gallery                 String    @default("[]")
   location                String?
   tags                    String    @default("[]")
@@ -164,6 +165,20 @@ model EmailLog {
   status         String   @default("sent")
   campaignId     String?
   sentAt         DateTime @default(now())
+}
+
+model Announcement {
+  id          String    @id @default(cuid())
+  title       String
+  message     String    @db.Text
+  type        String    @default("info")
+  status      String    @default("active")
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  createdById String
+  createdBy   User      @relation(fields: [createdById], references: [id])
 }
 
 model EmailAutomationRule {

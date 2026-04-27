@@ -408,7 +408,7 @@ export default function FundRaiserHistoryPage() {
                 <TableBody>
                   {filteredCampaigns.map((campaign) => {
                     const progress = (campaign.raisedAmount / campaign.targetAmount) * 100
-                    const completedOn = new Date(campaign.completedAt || campaign.endDate).toLocaleDateString()
+                    const completedOn = new Date(campaign.completedAt || campaign.endDate).toLocaleDateString('en-AU')
 
                     return (
                       <TableRow
@@ -437,8 +437,8 @@ export default function FundRaiserHistoryPage() {
                           </div>
                         </TableCell>
                         <TableCell className="align-top py-4 text-sm text-muted-foreground">
-                          <div>{new Date(campaign.startDate).toLocaleDateString()}</div>
-                          <div>to {new Date(campaign.endDate).toLocaleDateString()}</div>
+                          <div>{new Date(campaign.startDate).toLocaleDateString('en-AU')}</div>
+                          <div>to {new Date(campaign.endDate).toLocaleDateString('en-AU')}</div>
                         </TableCell>
                         <TableCell className="align-top py-4 text-right font-medium">
                           {formatCurrency(campaign.targetAmount)}

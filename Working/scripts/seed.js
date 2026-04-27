@@ -204,6 +204,29 @@ async function main() {
     },
   })
 
+  await prisma.campaign.create({
+    data: {
+      title: 'Community Garden for Seniors',
+      summary: 'Building a therapeutic garden for elderly residents at Sunshine Home.',
+      description:
+        'Sunshine Home houses 80 elderly residents who would benefit greatly from outdoor activity. This campaign funds raised garden beds, tools, seeds, and weekly volunteer sessions.',
+      category: 'Community',
+      serviceType: 'community',
+      status: 'pending_review',
+      targetAmount: 12000,
+      raisedAmount: 0,
+      donorCount: 0,
+      views: 0,
+      favouriteCount: 0,
+      startDate: startStr,
+      endDate: endStr,
+      coverImage: 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=800',
+      beneficiaryName: 'Sunshine Home Residents',
+      beneficiaryDescription: '80 elderly residents',
+      organiserId: fundraiser2.id,
+    },
+  })
+
   console.log('Campaigns created')
 
   // Donations
