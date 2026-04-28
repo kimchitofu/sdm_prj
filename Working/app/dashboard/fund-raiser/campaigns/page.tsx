@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState, useEffect } from "react"
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import {
   PlusCircle,
@@ -52,13 +52,18 @@ import { DashboardLayout } from "@/components/layout/dashboard-sidebar"
 import { useAuth } from "@/components/providers/session-provider"
 import { categories } from "@/lib/mock-data"
 
-type DbCampaign = {
+
+type SortOption = "newest" | "ending-soon" | "most-viewed" | "highest-raised" | "most-favourited"
+
+type CampaignStatus = "draft" | "active" | "completed" | "suspended" | "cancelled"
+
+type CampaignRow = {
   id: string
   title: string
   summary: string
   category: string
   serviceType: string
-  status: string
+  status: CampaignStatus
   targetAmount: number
   raisedAmount: number
   donorCount: number
@@ -70,34 +75,100 @@ type DbCampaign = {
   createdAt: string
 }
 
-type SortOption = "newest" | "ending-soon" | "most-viewed" | "highest-raised" | "most-favourited"
+type PageUser = {
+  id: string
+  firstName: string
+  lastName: string
+  email: string
+}
+
+const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1532629345422-7515f3d16bb6?w=1200&auto=format&fit=crop"
+
+function formatCurrency(amount: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 0,
+  }).format(amount)
+}
+
+function formatServiceType(value: string) {
+  return value
+    .split(/[_-]/g)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ")
+}
+
+function getStatusVariant(status: CampaignStatus): "default" | "secondary" | "outline" | "destructive" {
+  switch (status) {
+    case "active":
+      return "default"
+    case "draft":
+      return "secondary"
+    case "suspended":
+    case "cancelled":
+      return "destructive"
+    case "completed":
+    default:
+      return "outline"
+  }
+}
 
 export default function ManageCampaignsPage() {
-  const { user: sessionUser } = useAuth()
-  const [allCampaigns, setAllCampaigns] = useState<DbCampaign[]>([])
+  const [campaigns, setCampaigns] = useState<CampaignRow[]>([])
+  const [currentUser, setCurrentUser] = useState<PageUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const { user: sessionUser } = useAuth()
   const [searchQuery, setSearchQuery] = useState("")
   const [categoryFilter, setCategoryFilter] = useState<string>("all")
   const [serviceTypeFilter, setServiceTypeFilter] = useState<string>("all")
   const [sortBy, setSortBy] = useState<SortOption>("newest")
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [selectedCampaign, setSelectedCampaign] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   useEffect(() => {
-    fetch('/api/fund-raiser/campaigns')
-      .then((r) => r.json())
-      .then((data) => setAllCampaigns(data.campaigns ?? []))
-      .catch(() => {})
-      .finally(() => setIsLoading(false))
-  }, [])
+    let isMounted = true
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 0,
-    }).format(amount)
-  }
+    const loadCampaigns = async () => {
+      try {
+        setIsLoading(true)
+        setError(null)
+
+        const response = await fetch("/api/fund-raiser/campaigns", {
+          method: "GET",
+          credentials: "include",
+          cache: "no-store",
+        })
+
+        const data = await response.json().catch(() => null)
+
+        if (!response.ok) {
+          throw new Error(data?.error || "Unable to load campaigns.")
+        }
+
+        if (!isMounted) return
+
+        setCampaigns(Array.isArray(data?.campaigns) ? data.campaigns : [])
+        setCurrentUser(data?.user ?? null)
+      } catch (err) {
+        if (!isMounted) return
+        setError(err instanceof Error ? err.message : "Unable to load campaigns.")
+      } finally {
+        if (isMounted) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    loadCampaigns()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   const resetFilters = () => {
     setSearchQuery("")
@@ -106,10 +177,20 @@ export default function ManageCampaignsPage() {
     setSortBy("newest")
   }
 
+  const categories = useMemo(
+    () => Array.from(new Set(campaigns.map((campaign) => campaign.category))).sort((a, b) => a.localeCompare(b)),
+    [campaigns]
+  )
+
+  const serviceTypes = useMemo(
+    () => Array.from(new Set(campaigns.map((campaign) => campaign.serviceType))).sort((a, b) => a.localeCompare(b)),
+    [campaigns]
+  )
+
   const hasActiveFilters =
     searchQuery.trim().length > 0 || categoryFilter !== "all" || serviceTypeFilter !== "all" || sortBy !== "newest"
 
-  const getSortedCampaigns = (campaignList: DbCampaign[]) => {
+  const getSortedCampaigns = (campaignList: CampaignRow[]) => {
     const filtered = campaignList.filter((campaign) => {
       const query = searchQuery.trim().toLowerCase()
       const matchesSearch =
@@ -144,13 +225,59 @@ export default function ManageCampaignsPage() {
     })
   }
 
-  const filteredAllCampaigns = useMemo(() => getSortedCampaigns(allCampaigns), [allCampaigns, searchQuery, categoryFilter, serviceTypeFilter, sortBy])
-  const filteredDraftCampaigns = useMemo(() => getSortedCampaigns(allCampaigns.filter(c => c.status === 'draft')), [allCampaigns, searchQuery, categoryFilter, serviceTypeFilter, sortBy])
-  const filteredActiveCampaigns = useMemo(() => getSortedCampaigns(allCampaigns.filter(c => c.status === 'active')), [allCampaigns, searchQuery, categoryFilter, serviceTypeFilter, sortBy])
-  const filteredCompletedCampaigns = useMemo(() => getSortedCampaigns(allCampaigns.filter(c => c.status === 'completed')), [allCampaigns, searchQuery, categoryFilter, serviceTypeFilter, sortBy])
+  const allCampaigns = useMemo(() => campaigns, [campaigns])
+  const draftCampaigns = useMemo(() => campaigns.filter((campaign) => campaign.status === "draft"), [campaigns])
+  const activeCampaigns = useMemo(() => campaigns.filter((campaign) => campaign.status === "active"), [campaigns])
+  const completedCampaigns = useMemo(() => campaigns.filter((campaign) => campaign.status === "completed"), [campaigns])
 
-  const CampaignCard = ({ campaign }: { campaign: DbCampaign }) => {
-    const progress = (campaign.raisedAmount / campaign.targetAmount) * 100
+  const filteredAllCampaigns = useMemo(
+    () => getSortedCampaigns(allCampaigns),
+    [allCampaigns, searchQuery, categoryFilter, serviceTypeFilter, sortBy]
+  )
+  const filteredDraftCampaigns = useMemo(
+    () => getSortedCampaigns(draftCampaigns),
+    [draftCampaigns, searchQuery, categoryFilter, serviceTypeFilter, sortBy]
+  )
+  const filteredActiveCampaigns = useMemo(
+    () => getSortedCampaigns(activeCampaigns),
+    [activeCampaigns, searchQuery, categoryFilter, serviceTypeFilter, sortBy]
+  )
+  const filteredCompletedCampaigns = useMemo(
+    () => getSortedCampaigns(completedCampaigns),
+    [completedCampaigns, searchQuery, categoryFilter, serviceTypeFilter, sortBy]
+  )
+
+  const handleDelete = async () => {
+    if (!selectedCampaign) return
+
+    try {
+      setIsDeleting(true)
+      const response = await fetch("/api/fund-raiser/campaigns", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ campaignId: selectedCampaign }),
+      })
+
+      const data = await response.json().catch(() => null)
+      if (!response.ok) {
+        throw new Error(data?.error || "Unable to delete campaign.")
+      }
+
+      setCampaigns((prev) => prev.filter((campaign) => campaign.id !== selectedCampaign))
+      setDeleteDialogOpen(false)
+      setSelectedCampaign(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to delete campaign.")
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const CampaignCard = ({ campaign }: { campaign: CampaignRow }) => {
+    const progress = campaign.targetAmount > 0 ? (campaign.raisedAmount / campaign.targetAmount) * 100 : 0
     const daysRemaining = Math.max(
       0,
       Math.ceil((new Date(campaign.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
@@ -161,18 +288,14 @@ export default function ManageCampaignsPage() {
         <CardContent2 className="p-0">
           <div className="grid md:grid-cols-[220px_minmax(0,1fr)] md:items-stretch">
             <div className="relative min-h-[168px] overflow-hidden bg-muted md:min-h-full">
-              <img src={campaign.coverImage} alt={campaign.title} className="absolute inset-0 h-full w-full object-cover" />
+              <img
+                src={campaign.coverImage || FALLBACK_IMAGE}
+                alt={campaign.title}
+                className="absolute inset-0 h-full w-full object-cover"
+              />
               <Badge
-                className={`absolute left-2 top-2 ${
-                  campaign.status === "completed" ? "border-border bg-white text-foreground" : ""
-                }`}
-                variant={
-                  campaign.status === "active"
-                    ? "default"
-                    : campaign.status === "draft"
-                      ? "secondary"
-                      : "outline"
-                }
+                className={`absolute left-2 top-2 ${campaign.status === "completed" ? "border-border bg-white text-foreground" : ""}`}
+                variant={getStatusVariant(campaign.status)}
               >
                 {campaign.status}
               </Badge>
@@ -185,7 +308,7 @@ export default function ManageCampaignsPage() {
                       {campaign.category}
                     </Badge>
                     <Badge variant="outline" className="text-xs">
-                      {campaign.serviceType}
+                      {formatServiceType(campaign.serviceType)}
                     </Badge>
                   </div>
                   <Link href={`/campaign/${campaign.id}`}>
@@ -195,7 +318,7 @@ export default function ManageCampaignsPage() {
                   </Link>
                   <p className="mt-1 line-clamp-1 text-sm text-muted-foreground">{campaign.summary}</p>
 
-                  <div className="mt-2.5 flex items-center gap-4 text-sm text-muted-foreground">
+                  <div className="mt-2.5 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Eye className="h-4 w-4" />
                       {campaign.views.toLocaleString()}
@@ -208,9 +331,7 @@ export default function ManageCampaignsPage() {
                       <Users className="h-4 w-4" />
                       {campaign.donorCount}
                     </span>
-                    {campaign.status === "active" && (
-                      <span className="text-muted-foreground">{daysRemaining} days left</span>
-                    )}
+                    {campaign.status === "active" && <span>{daysRemaining} days left</span>}
                   </div>
 
                   <div className="mt-2.5">
@@ -220,7 +341,7 @@ export default function ManageCampaignsPage() {
                         {Math.round(progress)}% of {formatCurrency(campaign.targetAmount)}
                       </span>
                     </div>
-                    <Progress value={progress} className="h-2" />
+                    <Progress value={Math.min(progress, 100)} className="h-2" />
                   </div>
                 </div>
 
@@ -243,12 +364,12 @@ export default function ManageCampaignsPage() {
                         Edit Campaign
                       </Link>
                     </DropdownMenuItem>
-                    <DropdownMenuItem>
+                    <DropdownMenuItem disabled>
                       <Copy className="mr-2 h-4 w-4" />
                       Duplicate
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem>
+                    <DropdownMenuItem disabled>
                       <Archive className="mr-2 h-4 w-4" />
                       Archive
                     </DropdownMenuItem>
@@ -307,6 +428,12 @@ export default function ManageCampaignsPage() {
     </Card2>
   )
 
+  const dashboardUser = {
+    name: currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : "Fund Raiser",
+    email: currentUser?.email ?? "",
+    role: "Fund Raiser",
+  }
+
   return (
     <DashboardLayout
       role="fund_raiser"
@@ -329,6 +456,12 @@ export default function ManageCampaignsPage() {
         </Link>
       </div>
 
+      {error ? (
+        <Card2 className="mb-6 border-destructive/30">
+          <CardContent2 className="py-4 text-sm text-destructive">{error}</CardContent2>
+        </Card2>
+      ) : null}
+
       <div className="mb-8 flex flex-col gap-4 xl:flex-row">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -348,9 +481,9 @@ export default function ManageCampaignsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Categories</SelectItem>
-              {categories.map((cat) => (
-                <SelectItem key={cat.id} value={cat.name}>
-                  {cat.name}
+              {categories.map((category) => (
+                <SelectItem key={category} value={category}>
+                  {category}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -365,7 +498,7 @@ export default function ManageCampaignsPage() {
               <SelectItem value="all">All Service Types</SelectItem>
               {Array.from(new Set(allCampaigns.map((c) => c.serviceType))).sort().map((serviceType) => (
                 <SelectItem key={serviceType} value={serviceType}>
-                  {serviceType}
+                  {formatServiceType(serviceType)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -392,66 +525,68 @@ export default function ManageCampaignsPage() {
         </div>
       </div>
 
-      {isLoading && (
-        <div className="py-16 text-center text-muted-foreground">Loading campaigns...</div>
+      {isLoading ? (
+        <Card2>
+          <CardContent2 className="py-16 text-center text-muted-foreground">Loading campaigns...</CardContent2>
+        </Card2>
+      ) : (
+        <Tabs defaultValue="active" className="w-full">
+          <TabsList className="mb-6">
+            <TabsTrigger value="all">All ({allCampaigns.length})</TabsTrigger>
+            <TabsTrigger value="draft">Draft ({draftCampaigns.length})</TabsTrigger>
+            <TabsTrigger value="active">Active ({activeCampaigns.length})</TabsTrigger>
+            <TabsTrigger value="completed">Completed ({completedCampaigns.length})</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="all">
+            {filteredAllCampaigns.length > 0 ? (
+              <div className="space-y-4">
+                {filteredAllCampaigns.map((campaign) => (
+                  <CampaignCard key={campaign.id} campaign={campaign} />
+                ))}
+              </div>
+            ) : (
+              <EmptyState status={campaigns.length === 0 ? "all" : "matching"} />
+            )}
+          </TabsContent>
+
+          <TabsContent value="draft">
+            {filteredDraftCampaigns.length > 0 ? (
+              <div className="space-y-4">
+                {filteredDraftCampaigns.map((campaign) => (
+                  <CampaignCard key={campaign.id} campaign={campaign} />
+                ))}
+              </div>
+            ) : (
+              <EmptyState status="draft" />
+            )}
+          </TabsContent>
+
+          <TabsContent value="active">
+            {filteredActiveCampaigns.length > 0 ? (
+              <div className="space-y-4">
+                {filteredActiveCampaigns.map((campaign) => (
+                  <CampaignCard key={campaign.id} campaign={campaign} />
+                ))}
+              </div>
+            ) : (
+              <EmptyState status="active" />
+            )}
+          </TabsContent>
+
+          <TabsContent value="completed">
+            {filteredCompletedCampaigns.length > 0 ? (
+              <div className="space-y-4">
+                {filteredCompletedCampaigns.map((campaign) => (
+                  <CampaignCard key={campaign.id} campaign={campaign} />
+                ))}
+              </div>
+            ) : (
+              <EmptyState status="completed" />
+            )}
+          </TabsContent>
+        </Tabs>
       )}
-
-      {!isLoading && <Tabs defaultValue="all" className="w-full">
-        <TabsList className="mb-6">
-          <TabsTrigger value="all">All ({allCampaigns.length})</TabsTrigger>
-          <TabsTrigger value="draft">Draft ({filteredDraftCampaigns.length})</TabsTrigger>
-          <TabsTrigger value="active">Active ({filteredActiveCampaigns.length})</TabsTrigger>
-          <TabsTrigger value="completed">Completed ({filteredCompletedCampaigns.length})</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="all">
-          {filteredAllCampaigns.length > 0 ? (
-            <div className="space-y-4">
-              {filteredAllCampaigns.map((campaign) => (
-                <CampaignCard key={campaign.id} campaign={campaign} />
-              ))}
-            </div>
-          ) : (
-            <EmptyState status="matching" />
-          )}
-        </TabsContent>
-
-        <TabsContent value="draft">
-          {filteredDraftCampaigns.length > 0 ? (
-            <div className="space-y-4">
-              {filteredDraftCampaigns.map((campaign) => (
-                <CampaignCard key={campaign.id} campaign={campaign} />
-              ))}
-            </div>
-          ) : (
-            <EmptyState status="draft" />
-          )}
-        </TabsContent>
-
-        <TabsContent value="active">
-          {filteredActiveCampaigns.length > 0 ? (
-            <div className="space-y-4">
-              {filteredActiveCampaigns.map((campaign) => (
-                <CampaignCard key={campaign.id} campaign={campaign} />
-              ))}
-            </div>
-          ) : (
-            <EmptyState status="active" />
-          )}
-        </TabsContent>
-
-        <TabsContent value="completed">
-          {filteredCompletedCampaigns.length > 0 ? (
-            <div className="space-y-4">
-              {filteredCompletedCampaigns.map((campaign) => (
-                <CampaignCard key={campaign.id} campaign={campaign} />
-              ))}
-            </div>
-          ) : (
-            <EmptyState status="completed" />
-          )}
-        </TabsContent>
-      </Tabs>}
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
@@ -462,15 +597,16 @@ export default function ManageCampaignsPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => {
-                setSelectedCampaign(null)
-                setDeleteDialogOpen(false)
+              onClick={(event) => {
+                event.preventDefault()
+                void handleDelete()
               }}
+              disabled={isDeleting}
             >
-              Delete
+              {isDeleting ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
