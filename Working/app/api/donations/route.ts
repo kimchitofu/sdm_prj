@@ -34,6 +34,13 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  if (campaign.status === 'locked') {
+    return NextResponse.json(
+      { error: "This campaign has been locked and cannot accept donations." },
+      { status: 403 }
+    );
+  }
+
   const finalDonorName = isAnonymous
     ? "Anonymous"
     : session

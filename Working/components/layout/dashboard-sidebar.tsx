@@ -69,10 +69,19 @@ const fundRaiserNavItems: NavItem[] = [
 
 const adminNavItems: NavItem[] = [
   { href: "/dashboard/admin", label: "Dashboard", icon: <LayoutDashboard className="h-5 w-5" /> },
+  { href: "/dashboard/admin/campaign-dashboard", label: "Campaign Dashboard", icon: <BarChart3 className="h-5 w-5" /> },
+  { href: "/dashboard/admin/campaigns", label: "Campaign Review", icon: <ClipboardCheck className="h-5 w-5" /> },
+  { href: "/dashboard/admin/donation-reports", label: "Donation Reports", icon: <FileText className="h-5 w-5" /> },
   { href: "/dashboard/admin/users", label: "User Management", icon: <Users className="h-5 w-5" /> },
   { href: "/dashboard/admin/announcements", label: "Announcements", icon: <Megaphone className="h-5 w-5" /> },
   { href: "/dashboard/admin/reports-queue", label: "Reports Queue", icon: <Flag className="h-5 w-5" /> },
   { href: "/dashboard/admin/reports", label: "Export Reports", icon: <Download className="h-5 w-5" /> },
+]
+
+const campaignAdminNavItems: NavItem[] = [
+  { href: "/dashboard/admin/campaign-dashboard", label: "Campaign Dashboard", icon: <BarChart3 className="h-5 w-5" /> },
+  { href: "/dashboard/admin/campaigns", label: "Campaign Review", icon: <ClipboardCheck className="h-5 w-5" /> },
+  { href: "/dashboard/admin/donation-reports", label: "Donation Reports", icon: <FileText className="h-5 w-5" /> },
 ]
 
 const platformNavItems: NavItem[] = [
@@ -89,6 +98,8 @@ const getNavItems = (role: UserRole): NavItem[] => {
       return fundRaiserNavItems
     case "admin":
       return adminNavItems
+    case "campaign_admin":
+      return campaignAdminNavItems
     case "platform_manager":
       return platformNavItems
     default:
@@ -104,6 +115,8 @@ const getRoleLabel = (role: UserRole): string => {
       return "Fund Raiser"
     case "admin":
       return "Admin"
+    case "campaign_admin":
+      return "Campaign Admin"
     case "platform_manager":
       return "Platform Manager"
     default:
@@ -119,6 +132,8 @@ function isNavItemActive(pathname: string, href: string) {
     "/dashboard/admin",
     "/dashboard/admin/users",
     "/dashboard/admin/campaigns",
+    "/dashboard/admin/campaign-dashboard",
+    "/dashboard/admin/donation-reports",
     "/dashboard/admin/announcements",
     "/dashboard/admin/reports-queue",
     "/dashboard/admin/reports",

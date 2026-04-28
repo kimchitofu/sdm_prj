@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import {
   Flag,
   MessageSquare,
@@ -92,6 +93,14 @@ const statusConfig: Record<ReportStatus, { label: string; variant: 'default' | '
 
 export default function ReportsQueuePage() {
   const { user: sessionUser } = useAuth()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (sessionUser && sessionUser.role === 'campaign_admin') {
+      router.replace('/dashboard/admin/campaign-dashboard')
+    }
+  }, [sessionUser, router])
+
   const [cReports, setCReports] = useState<DbCampaignReport[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [mReports, setMReports] = useState<MessageReport[]>(messageReports)

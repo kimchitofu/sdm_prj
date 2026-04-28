@@ -4,7 +4,7 @@ import { getSession } from '@/lib/auth'
 
 export async function GET() {
   const session = await getSession()
-  if (!session || session.role !== 'admin') {
+  if (!session || (session.role !== 'admin' && session.role !== 'campaign_admin')) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -51,13 +51,18 @@ export async function GET() {
 
 export async function PATCH(req: Request) {
   const session = await getSession()
-  if (!session || session.role !== 'admin') {
+  if (!session || (session.role !== 'admin' && session.role !== 'campaign_admin')) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   const { campaignId, status } = await req.json()
   if (!campaignId || !status) {
     return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
+  }
+
+  const validStatuses = ['approved', 'rejected', 'under_review', 'on_hold', 'locked', 'active', 'draft']
+  if (!validStatuses.includes(status)) {
+    return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
   }
 
   // 'approved' in the review UI means the campaign goes live → store as 'active'

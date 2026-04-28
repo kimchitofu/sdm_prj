@@ -45,6 +45,19 @@ async function main() {
     },
   })
 
+  const campaignAdmin = await prisma.user.create({
+    data: {
+      email: 'campaignadmin@fundbridge.com',
+      password: adminPassword,
+      firstName: 'Campaign',
+      lastName: 'Admin',
+      role: 'campaign_admin',
+      isVerified: true,
+      status: 'active',
+      location: 'Remote',
+    },
+  })
+
   const platformManager = await prisma.user.create({
     data: {
       email: 'platform@fundbridge.com',
@@ -358,7 +371,8 @@ async function main() {
 
   console.log('Seed complete.')
   console.log('\nDemo accounts:')
-  console.log('  admin@fundbridge.com      -> admin (password: Admin@1234)')
+  console.log('  admin@fundbridge.com           -> admin (password: Admin@1234)')
+  console.log('  campaignadmin@fundbridge.com   -> admin / Campaign Admin (password: Admin@1234)')
   console.log('  platform@fundbridge.com   -> platform_manager (password: Demo1234)')
   console.log('  fundraiser@example.com    -> fund_raiser (password: Demo1234)')
   console.log('  fundraiser2@example.com   -> fund_raiser (password: Demo1234)')

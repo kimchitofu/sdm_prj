@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Megaphone, Plus, Trash2, BellOff, Bell, AlertTriangle, Info, Wrench, Siren } from 'lucide-react'
 import { DashboardLayout } from '@/components/layout/dashboard-sidebar'
 import { Button } from '@/components/ui/button'
@@ -55,6 +56,14 @@ const typeConfig: Record<string, { label: string; icon: React.ReactNode; variant
 
 export default function AnnouncementsPage() {
   const { user: sessionUser } = useAuth()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (sessionUser && sessionUser.role === 'campaign_admin') {
+      router.replace('/dashboard/admin/campaign-dashboard')
+    }
+  }, [sessionUser, router])
+
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
