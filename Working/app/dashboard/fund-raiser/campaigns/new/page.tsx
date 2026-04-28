@@ -108,6 +108,8 @@ export default function CreateCampaignPage() {
   const [showSuccess, setShowSuccess] = useState(false)
   const [formData, setFormData] = useState(initialFormData)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState("")
   const [countries, setCountries] = useState<CountryOption[]>([])
   const [cities, setCities] = useState<CityOption[]>([])
   const [countriesLoading, setCountriesLoading] = useState(true)
@@ -357,38 +359,58 @@ export default function CreateCampaignPage() {
   }
 
   const handleSubmit = async (isDraft: boolean) => {
+    if (isSubmitting) return
+
+    setSubmitError("")
+
     if (!isDraft && !validateBeforePublish()) {
       const firstErrorStep = [1, 2, 3].find((step) => !validateStep(step)) || 1
       setCurrentStep(firstErrorStep)
       return
     }
 
-    const res = await fetch('/api/fund-raiser/campaigns', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        title: formData.title,
-        summary: formData.summary,
-        description: formData.description,
-        category: formData.category,
-        serviceType: formData.serviceType,
-        targetAmount: formData.targetAmount,
-        startDate: formData.startDate,
-        endDate: formData.endDate,
-        beneficiaryName: formData.beneficiaryName,
-        beneficiaryRelationship: formData.beneficiaryRelationship,
-        location: resolvedLocation,
-        coverImage: formData.coverImagePreview,
-        isDraft,
-      }),
-    })
+    try {
+      setIsSubmitting(true)
 
-    if (!res.ok) return
+      const res = await fetch('/api/fund-raiser/campaigns', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: formData.title,
+          summary: formData.summary,
+          description: formData.description,
+          category: formData.category,
+          serviceType: formData.serviceType,
+          targetAmount: formData.targetAmount,
+          startDate: formData.startDate,
+          endDate: formData.endDate,
+          beneficiaryName: formData.beneficiaryName,
+          beneficiaryRelationship: formData.beneficiaryRelationship,
+          beneficiaryDescription: formData.description,
+          location: resolvedLocation,
+          coverImage: formData.coverImagePreview,
+          gallery: formData.galleryPreviews,
+          tags: [formData.category, formData.serviceType].filter(Boolean),
+          isDraft,
+        }),
+      })
 
-    setShowSuccess(true)
-    setTimeout(() => {
-      router.push("/dashboard/fund-raiser/campaigns")
-    }, 1600)
+      const data = await res.json().catch(() => null)
+
+      if (!res.ok) {
+        setSubmitError(data?.error || 'Unable to save the campaign right now.')
+        return
+      }
+
+      setShowSuccess(true)
+      setTimeout(() => {
+        router.push("/dashboard/fund-raiser/campaigns")
+      }, 1600)
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'Unable to save the campaign right now.')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const formatCurrency = (value: string) => {
@@ -438,6 +460,11 @@ export default function CreateCampaignPage() {
       } : undefined}
     >
       <div className="space-y-6">
+        {submitError ? (
+          <div className="rounded-2xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+            {submitError}
+          </div>
+        ) : null}
         <div className="mb-8">
           <h1 className="mb-2 text-2xl font-bold text-foreground md:text-3xl">
             Create New Campaign
@@ -987,26 +1014,26 @@ export default function CreateCampaignPage() {
               )}
 
               <div className="mt-8 flex flex-col gap-3 border-t pt-6 sm:flex-row sm:items-center sm:justify-between">
-                <Button variant="outline" onClick={handlePrevious} disabled={currentStep === 1}>
+                <Button variant="outline" onClick={handlePrevious} disabled={currentStep === 1 || isSubmitting}>
                   <ArrowLeft className="mr-2 h-4 w-4" />
                   Previous
                 </Button>
 
                 <div className="flex flex-col gap-3 sm:flex-row">
-                  <Button variant="outline" onClick={() => handleSubmit(true)}>
+                  <Button variant="outline" onClick={() => handleSubmit(true)} disabled={isSubmitting}>
                     <Save className="mr-2 h-4 w-4" />
-                    Save draft
+                    {isSubmitting ? "Saving..." : "Save draft"}
                   </Button>
 
                   {currentStep < steps.length ? (
-                    <Button onClick={handleNext}>
+                    <Button onClick={handleNext} disabled={isSubmitting}>
                       Continue
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                   ) : (
-                    <Button onClick={() => handleSubmit(false)}>
+                    <Button onClick={() => handleSubmit(false)} disabled={isSubmitting}>
                       <Send className="mr-2 h-4 w-4" />
-                      Publish campaign
+                      {isSubmitting ? "Publishing..." : "Publish campaign"}
                     </Button>
                   )}
                 </div>

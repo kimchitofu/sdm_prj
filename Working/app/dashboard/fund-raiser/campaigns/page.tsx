@@ -51,7 +51,7 @@ import {
 import { DashboardLayout } from "@/components/layout/dashboard-sidebar"
 import { useAuth } from "@/components/providers/session-provider"
 import { categories } from "@/lib/mock-data"
-}
+
 
 type SortOption = "newest" | "ending-soon" | "most-viewed" | "highest-raised" | "most-favourited"
 

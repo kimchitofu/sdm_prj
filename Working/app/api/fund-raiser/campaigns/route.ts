@@ -1,110 +1,19 @@
-<<<<<<< HEAD
-import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getSession } from '@/lib/auth'
-
-const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1532629345422-7515f3d16bb6?w=1200&auto=format&fit=crop'
-
-export async function GET() {
-  try {
-    const session = await getSession()
-    if (!session || session.role !== 'fund_raiser') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const campaigns = await prisma.campaign.findMany({
-      where: { organiserId: session.id },
-      select: {
-        id: true,
-        title: true,
-        summary: true,
-        category: true,
-        serviceType: true,
-        status: true,
-        targetAmount: true,
-        raisedAmount: true,
-        donorCount: true,
-        views: true,
-        favouriteCount: true,
-        endDate: true,
-        coverImage: true,
-        createdAt: true,
-      },
-      orderBy: { createdAt: 'desc' },
-    })
-
-    return NextResponse.json({
-      user: {
-        id: session.id,
-        firstName: session.firstName,
-        lastName: session.lastName,
-        email: session.email,
-      },
-      campaigns: campaigns.map((campaign) => ({
-        id: campaign.id,
-        title: campaign.title,
-        summary: campaign.summary,
-        category: campaign.category,
-        serviceType: campaign.serviceType,
-        status: campaign.status,
-        targetAmount: Number(campaign.targetAmount ?? 0),
-        raisedAmount: Number(campaign.raisedAmount ?? 0),
-        donorCount: Number(campaign.donorCount ?? 0),
-        views: Number(campaign.views ?? 0),
-        favouriteCount: Number(campaign.favouriteCount ?? 0),
-        endDate: campaign.endDate instanceof Date ? campaign.endDate.toISOString() : String(campaign.endDate),
-        coverImage: campaign.coverImage || FALLBACK_IMAGE,
-        createdAt: campaign.createdAt.toISOString(),
-      })),
-    })
-  } catch (error) {
-    console.error('Failed to load fund raiser campaigns:', error)
-    return NextResponse.json({ error: 'Failed to load campaigns' }, { status: 500 })
-  }
-}
-
-export async function DELETE(request: Request) {
-  try {
-    const session = await getSession()
-    if (!session || session.role !== 'fund_raiser') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const { campaignId } = await request.json()
-    if (!campaignId) {
-      return NextResponse.json({ error: 'Campaign ID is required' }, { status: 400 })
-    }
-
-    const existingCampaign = await prisma.campaign.findFirst({
-      where: {
-        id: campaignId,
-        organiserId: session.id,
-      },
-      select: { id: true },
-    })
-
-    if (!existingCampaign) {
-      return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
-    }
-
-    await prisma.$transaction([
-      prisma.donation.deleteMany({ where: { campaignId } }),
-      prisma.favourite.deleteMany({ where: { campaignId } }),
-      prisma.campaignUpdate.deleteMany({ where: { campaignId } }),
-      prisma.campaignReport.deleteMany({ where: { campaignId } }),
-      prisma.auditLog.deleteMany({ where: { targetId: campaignId } }),
-      prisma.campaign.delete({ where: { id: campaignId } }),
-    ])
-
-    return NextResponse.json({ success: true })
-  } catch (error) {
-    console.error('Failed to delete fund raiser campaign:', error)
-    return NextResponse.json({ error: 'Failed to delete campaign' }, { status: 500 })
-  }
-=======
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
+
+function asTrimmedString(value: unknown) {
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+function asOptionalString(value: unknown) {
+  const next = asTrimmedString(value)
+  return next.length > 0 ? next : null
+}
+
+function asStringArray(value: unknown) {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0) : []
+}
 
 export async function GET() {
   const session = await getSession()
@@ -147,33 +56,83 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const body = await request.json()
-  const {
-    title, summary, description, category, serviceType,
-    targetAmount, startDate, endDate,
-    beneficiaryName, beneficiaryRelationship,
-    location, coverImage, isDraft,
-  } = body
+  try {
+    const body = await request.json()
 
-  const campaign = await prisma.campaign.create({
-    data: {
-      title,
-      summary,
-      description,
-      category,
-      serviceType,
-      targetAmount: parseFloat(targetAmount),
-      startDate,
-      endDate,
-      beneficiaryName,
-      beneficiaryRelationship: beneficiaryRelationship || null,
-      location: location || null,
-      coverImage: coverImage || '',
-      status: isDraft ? 'draft' : 'active',
-      organiserId: session.id,
-    },
-  })
+    const isDraft = Boolean(body?.isDraft)
+    const title = asTrimmedString(body?.title)
+    const summary = asTrimmedString(body?.summary)
+    const description = asTrimmedString(body?.description)
+    const category = asTrimmedString(body?.category)
+    const serviceType = asTrimmedString(body?.serviceType)
+    const beneficiaryName = asTrimmedString(body?.beneficiaryName)
+    const targetAmount = Number(body?.targetAmount)
+    const startDate = asTrimmedString(body?.startDate)
+    const endDate = asTrimmedString(body?.endDate)
+    const beneficiaryRelationship = asOptionalString(body?.beneficiaryRelationship)
+    const beneficiaryDescription = asOptionalString(body?.beneficiaryDescription)
+    const location = asOptionalString(body?.location)
+    const coverImage = asOptionalString(body?.coverImage)
+    const gallery = asStringArray(body?.gallery)
+    const tags = asStringArray(body?.tags)
 
-  return NextResponse.json({ success: true, campaignId: campaign.id })
->>>>>>> e0f911f34b5653077943930a23b809e343ca31af
+    if (!isDraft) {
+      if (!title) return NextResponse.json({ error: 'Campaign title is required.' }, { status: 400 })
+      if (!summary) return NextResponse.json({ error: 'Campaign summary is required.' }, { status: 400 })
+      if (!description) return NextResponse.json({ error: 'Campaign story is required.' }, { status: 400 })
+      if (!category) return NextResponse.json({ error: 'Campaign category is required.' }, { status: 400 })
+      if (!serviceType) return NextResponse.json({ error: 'Campaign service type is required.' }, { status: 400 })
+      if (!beneficiaryName) return NextResponse.json({ error: 'Beneficiary name is required.' }, { status: 400 })
+      if (!startDate) return NextResponse.json({ error: 'Start date is required.' }, { status: 400 })
+      if (!endDate) return NextResponse.json({ error: 'End date is required.' }, { status: 400 })
+      if (!Number.isFinite(targetAmount) || targetAmount <= 0) {
+        return NextResponse.json({ error: 'Please provide a valid target amount.' }, { status: 400 })
+      }
+      if (!coverImage) {
+        return NextResponse.json({ error: 'A cover image is required before publishing.' }, { status: 400 })
+      }
+    }
+
+    const safeTargetAmount = Number.isFinite(targetAmount) && targetAmount > 0 ? targetAmount : 0
+
+    const campaign = await prisma.campaign.create({
+      data: {
+        title: title || 'Untitled campaign',
+        summary: summary || 'Draft campaign summary',
+        description: description || 'Draft campaign description',
+        category: category || 'General',
+        serviceType: serviceType || 'General',
+        targetAmount: safeTargetAmount,
+        startDate: startDate || '',
+        endDate: endDate || '',
+        beneficiaryName: beneficiaryName || 'Not specified',
+        beneficiaryRelationship,
+        beneficiaryDescription,
+        location,
+        coverImage,
+        gallery: JSON.stringify(gallery),
+        tags: JSON.stringify(tags),
+        status: isDraft ? 'draft' : 'active',
+        organiserId: session.id,
+      },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+      },
+    })
+
+    return NextResponse.json({
+      success: true,
+      campaignId: campaign.id,
+      status: campaign.status,
+      title: campaign.title,
+    })
+  } catch (error) {
+    console.error('Failed to create campaign:', error)
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Unable to create campaign right now.' },
+      { status: 500 }
+    )
+  }
 }
