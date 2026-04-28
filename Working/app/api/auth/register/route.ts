@@ -23,7 +23,7 @@ export async function POST(request: Request) {
         password: hashed,
         firstName,
         lastName,
-        role: role || 'donee',
+        role: role || 'donor',
       },
     })
 

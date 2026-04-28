@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { LiveCampaignProgress } from "@/components/campaigns/live-campaign-progress";
+import { ShareCampaignButton } from "@/components/campaigns/share-campaign-button";
 
 
 export default async function CampaignDetailsPage({
@@ -83,6 +84,8 @@ export default async function CampaignDetailsPage({
           </div>
         )}
       </section>
+
+      <ShareCampaignButton campaignId={campaign.id} campaignTitle={campaign.title} />
 
       <Link
         href={`/campaign/${campaign.id}/donate`}
