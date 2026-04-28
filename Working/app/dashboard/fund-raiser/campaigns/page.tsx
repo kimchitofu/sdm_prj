@@ -17,6 +17,8 @@ import {
   Filter,
   RotateCcw,
   ArrowUpDown,
+  MessageSquarePlus,
+  Loader2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card2, CardContent2 } from "@/components/ui/card2"
@@ -48,6 +50,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
 import { DashboardLayout } from "@/components/layout/dashboard-sidebar"
 import { useAuth } from "@/components/providers/session-provider"
 import { categories } from "@/lib/mock-data"
@@ -82,6 +87,13 @@ type PageUser = {
   email: string
 }
 
+type CampaignUpdateRow = {
+  id: string
+  title: string
+  content: string
+  createdAt: string
+}
+
 const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1532629345422-7515f3d16bb6?w=1200&auto=format&fit=crop"
 
 function formatCurrency(amount: number) {
@@ -90,6 +102,16 @@ function formatCurrency(amount: number) {
     currency: "USD",
     minimumFractionDigits: 0,
   }).format(amount)
+}
+
+function formatDateTime(value: string) {
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return value
+
+  return new Intl.DateTimeFormat("en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(parsed)
 }
 
 function formatServiceType(value: string) {
@@ -128,6 +150,15 @@ export default function ManageCampaignsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [selectedCampaign, setSelectedCampaign] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [updateDialogOpen, setUpdateDialogOpen] = useState(false)
+  const [selectedCampaignForUpdate, setSelectedCampaignForUpdate] = useState<CampaignRow | null>(null)
+  const [recentUpdates, setRecentUpdates] = useState<CampaignUpdateRow[]>([])
+  const [isLoadingUpdates, setIsLoadingUpdates] = useState(false)
+  const [isSubmittingUpdate, setIsSubmittingUpdate] = useState(false)
+  const [updateTitle, setUpdateTitle] = useState("")
+  const [updateContent, setUpdateContent] = useState("")
+  const [updateError, setUpdateError] = useState<string | null>(null)
+  const [updateSuccess, setUpdateSuccess] = useState<string | null>(null)
 
   useEffect(() => {
     let isMounted = true
@@ -276,6 +307,89 @@ export default function ManageCampaignsPage() {
     }
   }
 
+  const loadRecentUpdates = async (campaignId: string) => {
+    try {
+      setIsLoadingUpdates(true)
+      setUpdateError(null)
+
+      const response = await fetch(`/api/fund-raiser/campaign-updates?campaignId=${campaignId}`, {
+        credentials: "include",
+        cache: "no-store",
+      })
+      const data = await response.json().catch(() => null)
+
+      if (!response.ok) {
+        throw new Error(data?.error || "Unable to load campaign updates.")
+      }
+
+      setRecentUpdates(Array.isArray(data?.updates) ? data.updates : [])
+    } catch (err) {
+      setUpdateError(err instanceof Error ? err.message : "Unable to load campaign updates.")
+      setRecentUpdates([])
+    } finally {
+      setIsLoadingUpdates(false)
+    }
+  }
+
+  const openUpdateDialog = async (campaign: CampaignRow) => {
+    setSelectedCampaignForUpdate(campaign)
+    setUpdateTitle("")
+    setUpdateContent("")
+    setUpdateSuccess(null)
+    setUpdateError(null)
+    setUpdateDialogOpen(true)
+    await loadRecentUpdates(campaign.id)
+  }
+
+  const handleSubmitUpdate = async () => {
+    if (!selectedCampaignForUpdate) return
+
+    try {
+      setIsSubmittingUpdate(true)
+      setUpdateError(null)
+      setUpdateSuccess(null)
+
+      const response = await fetch("/api/fund-raiser/campaign-updates", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          campaignId: selectedCampaignForUpdate.id,
+          title: updateTitle,
+          content: updateContent,
+        }),
+      })
+
+      const data = await response.json().catch(() => null)
+      if (!response.ok) {
+        throw new Error(data?.error || "Unable to post campaign update.")
+      }
+
+      const workflow = data?.workflow
+      let successMessage = "Campaign update posted successfully."
+
+      if (workflow?.attempted && Number(workflow.deliveredCount || 0) > 0) {
+        const deliveredCount = Number(workflow.deliveredCount || 0)
+        successMessage = `Update posted successfully. Campaign update email sent to ${deliveredCount} supporter${deliveredCount === 1 ? "" : "s"}.`
+      } else if (workflow?.attempted && Number(workflow.deliveredCount || 0) === 0) {
+        successMessage = "Update posted successfully, but no supporters were eligible for email."
+      } else if (workflow?.attempted === false && workflow?.reason) {
+        successMessage = `Update posted successfully, but the workflow email did not send${workflow.reason ? `: ${workflow.reason}` : "."}`
+      }
+
+      setUpdateTitle("")
+      setUpdateContent("")
+      setUpdateSuccess(successMessage)
+      setRecentUpdates(Array.isArray(data?.updates) ? data.updates : recentUpdates)
+    } catch (err) {
+      setUpdateError(err instanceof Error ? err.message : "Unable to post campaign update.")
+    } finally {
+      setIsSubmittingUpdate(false)
+    }
+  }
+
   const CampaignCard = ({ campaign }: { campaign: CampaignRow }) => {
     const progress = campaign.targetAmount > 0 ? (campaign.raisedAmount / campaign.targetAmount) * 100 : 0
     const daysRemaining = Math.max(
@@ -363,6 +477,10 @@ export default function ManageCampaignsPage() {
                         <Edit className="mr-2 h-4 w-4" />
                         Edit Campaign
                       </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => openUpdateDialog(campaign)}>
+                      <MessageSquarePlus className="mr-2 h-4 w-4" />
+                      Post Update
                     </DropdownMenuItem>
                     <DropdownMenuItem disabled>
                       <Copy className="mr-2 h-4 w-4" />
@@ -587,6 +705,109 @@ export default function ManageCampaignsPage() {
           </TabsContent>
         </Tabs>
       )}
+
+      <Dialog
+        open={updateDialogOpen}
+        onOpenChange={(open) => {
+          setUpdateDialogOpen(open)
+          if (!open) {
+            setSelectedCampaignForUpdate(null)
+            setUpdateTitle("")
+            setUpdateContent("")
+            setUpdateError(null)
+            setUpdateSuccess(null)
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Post campaign update</DialogTitle>
+            <DialogDescription>
+              Share a progress update with supporters for {selectedCampaignForUpdate?.title || "this campaign"}.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {updateError ? (
+              <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                {updateError}
+              </div>
+            ) : null}
+
+            {updateSuccess ? (
+              <div className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                {updateSuccess}
+              </div>
+            ) : null}
+
+            <div className="space-y-2">
+              <Label htmlFor="campaign-update-title">Update title</Label>
+              <Input
+                id="campaign-update-title"
+                value={updateTitle}
+                onChange={(event) => setUpdateTitle(event.target.value)}
+                placeholder="e.g. Emergency supplies have arrived"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="campaign-update-content">Update content</Label>
+              <Textarea
+                id="campaign-update-content"
+                value={updateContent}
+                onChange={(event) => setUpdateContent(event.target.value)}
+                placeholder="Write a short progress update for your supporters..."
+                rows={6}
+              />
+            </div>
+
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                onClick={handleSubmitUpdate}
+                disabled={isSubmittingUpdate || !selectedCampaignForUpdate || !updateTitle.trim() || !updateContent.trim()}
+              >
+                {isSubmittingUpdate ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MessageSquarePlus className="mr-2 h-4 w-4" />}
+                {isSubmittingUpdate ? "Posting update..." : "Submit update"}
+              </Button>
+            </div>
+
+            <div className="space-y-3 rounded-lg border p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="font-semibold text-foreground">Recent updates</h3>
+                  <p className="text-sm text-muted-foreground">Latest updates posted for this campaign.</p>
+                </div>
+                {selectedCampaignForUpdate ? (
+                  <Button type="button" variant="outline" size="sm" onClick={() => loadRecentUpdates(selectedCampaignForUpdate.id)} disabled={isLoadingUpdates}>
+                    {isLoadingUpdates ? <Loader2 className="h-4 w-4 animate-spin" /> : "Refresh"}
+                  </Button>
+                ) : null}
+              </div>
+
+              {isLoadingUpdates ? (
+                <div className="py-8 text-center text-sm text-muted-foreground">Loading recent updates...</div>
+              ) : recentUpdates.length > 0 ? (
+                <div className="max-h-64 space-y-3 overflow-y-auto pr-1">
+                  {recentUpdates.map((update) => (
+                    <div key={update.id} className="rounded-md border bg-muted/20 p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="font-medium text-foreground">{update.title}</p>
+                          <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{update.content}</p>
+                        </div>
+                        <span className="shrink-0 text-xs text-muted-foreground">{formatDateTime(update.createdAt)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-8 text-center text-sm text-muted-foreground">No updates have been posted for this campaign yet.</div>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
