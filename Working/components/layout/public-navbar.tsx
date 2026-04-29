@@ -87,7 +87,7 @@ export function PublicNavbar() {
   const handleSignOut = async () => {
     await fetch('/api/auth/logout', { method: 'POST' })
     localStorage.removeItem('currentUser')
-    window.location.href = '/auth/sign-in'
+    window.location.href = '/'
   }
 
   return (

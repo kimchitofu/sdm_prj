@@ -243,14 +243,18 @@ function SidebarContent({ role, user, pathname, onNavigate }: {
           <Settings className="h-5 w-5" />
           <span>Settings</span>
         </Link>
-        <Link
-          href="/auth/sign-in"
-          onClick={onNavigate}
-          className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        <button
+          onClick={async () => {
+            onNavigate?.()
+            await fetch('/api/auth/logout', { method: 'POST' })
+            localStorage.removeItem('currentUser')
+            window.location.href = '/'
+          }}
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           <LogOut className="h-5 w-5" />
           <span>Sign Out</span>
-        </Link>
+        </button>
       </div>
     </div>
   )
