@@ -1,6 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/components/providers/session-provider"
 import {
   Download,
   FileText,
@@ -209,6 +211,15 @@ function exportReport(type: ReportType, startDate: string, endDate: string) {
 }
 
 export default function ExportReportsPage() {
+  const { user: sessionUser } = useAuth()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (sessionUser && sessionUser.role === 'campaign_admin') {
+      router.replace('/dashboard/admin/campaign-dashboard')
+    }
+  }, [sessionUser, router])
+
   const [selectedType, setSelectedType] = useState<ReportType>('platform')
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState("")

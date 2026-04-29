@@ -13,6 +13,7 @@ import {
   User,
   Calendar,
   ShieldAlert,
+  Lock,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -69,6 +70,7 @@ const statusConfig: Record<string, { label: string; variant: 'default' | 'second
   active: { label: 'Approved (Live)', variant: 'default' },
   rejected: { label: 'Rejected', variant: 'destructive' },
   on_hold: { label: 'On Hold', variant: 'destructive' },
+  locked: { label: 'Locked', variant: 'destructive' },
   draft: { label: 'Draft', variant: 'outline' },
   completed: { label: 'Completed', variant: 'outline' },
 }
@@ -84,6 +86,10 @@ export default function CampaignReviewPage() {
   const [actionType, setActionType] = useState<string>("")
   const [actionDialogOpen, setActionDialogOpen] = useState(false)
   const [reviewNotes, setReviewNotes] = useState("")
+  const [lockDialogOpen, setLockDialogOpen] = useState(false)
+  const [lockTarget, setLockTarget] = useState<CampaignReview | null>(null)
+  const [lockReason, setLockReason] = useState("")
+  const [isLocking, setIsLocking] = useState(false)
 
   useEffect(() => {
     fetch('/api/admin/campaigns')
@@ -142,6 +148,31 @@ export default function CampaignReviewPage() {
     setReviewNotes("")
   }
 
+  const handleLock = (review: CampaignReview) => {
+    setLockTarget(review)
+    setLockReason("")
+    setLockDialogOpen(true)
+  }
+
+  const confirmLock = async () => {
+    if (!lockTarget || !lockReason.trim()) return
+    setIsLocking(true)
+    await fetch('/api/admin/campaigns', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ campaignId: lockTarget.campaignId, status: 'locked' }),
+    })
+    setReviews((prev) =>
+      prev.map((r) =>
+        r.id === lockTarget.id ? { ...r, status: 'locked' as unknown as ReviewStatus } : r
+      )
+    )
+    setIsLocking(false)
+    setLockDialogOpen(false)
+    setLockTarget(null)
+    setLockReason("")
+  }
+
   const getActionDialogContent = () => {
     switch (actionType) {
       case 'approve':
@@ -185,7 +216,7 @@ export default function CampaignReviewPage() {
 
   return (
     <DashboardLayout
-      role="admin"
+      role={(sessionUser?.role as import('@/lib/types').UserRole) ?? 'admin'}
       user={sidebarUser}
     >
       <div className="mb-8">
@@ -306,6 +337,17 @@ export default function CampaignReviewPage() {
                               <XCircle className="h-4 w-4" />
                             </Button>
                           </>
+                        )}
+                        {review.status === 'active' && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-destructive"
+                            title="Lock campaign (fraud prevention)"
+                            onClick={() => handleLock(review)}
+                          >
+                            <Lock className="h-4 w-4" />
+                          </Button>
                         )}
                       </div>
                     </TableCell>
@@ -486,6 +528,45 @@ export default function CampaignReviewPage() {
               className={dialogContent.danger ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : ''}
             >
               {dialogContent.buttonLabel}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Lock Campaign Dialog */}
+      <AlertDialog open={lockDialogOpen} onOpenChange={setLockDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Lock className="h-5 w-5 text-destructive" />
+              Lock Campaign?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong>{lockTarget?.campaignTitle}</strong> will be locked immediately. It will no longer accept donations
+              and will be marked as locked in all views. This action cannot be automatically reversed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="px-6 pb-2">
+            <Label htmlFor="lockReason" className="text-sm">
+              Reason for locking <span className="text-destructive">*</span>
+            </Label>
+            <Textarea
+              id="lockReason"
+              placeholder="Describe the fraud concern or reason for locking this campaign..."
+              value={lockReason}
+              onChange={(e) => setLockReason(e.target.value)}
+              className="mt-1.5 text-sm"
+              rows={3}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isLocking}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmLock}
+              disabled={!lockReason.trim() || isLocking}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isLocking ? 'Locking...' : 'Lock Campaign'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

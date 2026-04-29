@@ -1,5 +1,5 @@
 // User and Authentication Types
-export type UserRole = 'donee' | 'donor' | 'fund_raiser' | 'admin' | 'platform_manager'
+export type UserRole = 'donee' | 'fund_raiser' | 'admin' | 'platform_manager' | 'campaign_admin' | 'donor'
 
 export interface User {
   id: string
