@@ -2,6 +2,31 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 
+export async function GET() {
+  const session = await getSession();
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const donations = await prisma.donation.findMany({
+    where: { donorId: session.id },
+    include: {
+      campaign: {
+        select: {
+          id: true,
+          title: true,
+          category: true,
+          raisedAmount: true,
+          targetAmount: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return NextResponse.json({ donations });
+}
+
 export async function POST(request: NextRequest) {
   const {
     campaignId,

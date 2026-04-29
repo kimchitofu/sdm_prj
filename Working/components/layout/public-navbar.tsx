@@ -47,6 +47,8 @@ function getDashboardHref(role: string) {
     case 'admin': return '/dashboard/admin'
     case 'fund_raiser': return '/dashboard/fund-raiser'
     case 'platform_manager': return '/dashboard/platform'
+    case 'donor': return '/dashboard/donor'
+    case 'donee': return '/dashboard/donee'
     default: return '/dashboard/donee'
   }
 }
