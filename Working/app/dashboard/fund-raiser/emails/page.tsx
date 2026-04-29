@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import {
   CheckCircle2,
-  Clock3,
+  ChevronDown,
+  ChevronRight,
   Mail,
   MessageSquareHeart,
   PencilLine,
@@ -43,6 +44,21 @@ type FundRaiserEmailsResponse = {
   logs: EmailLogSummary[]
 }
 
+type GroupedEmailActivity = {
+  id: string
+  ruleKey: EmailLogSummary["ruleKey"]
+  ruleLabel: string
+  status: EmailLogSummary["status"]
+  statusLabel: string
+  subject: string
+  campaignId?: string
+  campaignTitle?: string
+  sentAt: string
+  recipientCount: number
+  recipients: Array<{ name: string; email?: string }>
+}
+
+
 const defaultEmailAutomationController = new EmailAutomationController([], [], [])
 const fallbackFundRaiserUser: User = {
   id: "pending-fundraiser-user",
@@ -69,6 +85,53 @@ function formatDateTime(value?: string) {
   if (!value) return "No event timestamp"
   return new Date(value).toLocaleString()
 }
+
+function groupEmailActivity(logs: EmailLogSummary[]): GroupedEmailActivity[] {
+  const grouped = new Map<string, GroupedEmailActivity>()
+
+  for (const log of logs) {
+    const sentAtBucket = log.sentAt ? new Date(Math.floor(new Date(log.sentAt).getTime() / 1000) * 1000).toISOString() : "no-date"
+    const groupKey = [
+      log.ruleKey,
+      log.status,
+      log.subject,
+      log.campaignId || log.campaignTitle || "no-campaign",
+      sentAtBucket,
+    ].join("::")
+
+    const existing = grouped.get(groupKey)
+    if (existing) {
+      existing.recipientCount += 1
+      existing.recipients.push({
+        name: log.recipientName,
+        email: log.recipientEmail,
+      })
+      continue
+    }
+
+    grouped.set(groupKey, {
+      id: groupKey,
+      ruleKey: log.ruleKey,
+      ruleLabel: log.ruleLabel,
+      status: log.status,
+      statusLabel: log.statusLabel,
+      subject: log.subject,
+      campaignId: log.campaignId,
+      campaignTitle: log.campaignTitle,
+      sentAt: log.sentAt,
+      recipientCount: 1,
+      recipients: [
+        {
+          name: log.recipientName,
+          email: log.recipientEmail,
+        },
+      ],
+    })
+  }
+
+  return Array.from(grouped.values())
+}
+
 export default function FundRaiserEmailsPage() {
   const searchParams = useSearchParams()
   const initialSegment = searchParams.get("segment")
@@ -103,6 +166,12 @@ export default function FundRaiserEmailsPage() {
     message: "",
   })
 
+  const [activityStatusFilter, setActivityStatusFilter] = useState<"all" | EmailLogSummary["status"]>("all")
+  const [activityCampaignFilter, setActivityCampaignFilter] = useState<string>("all")
+  const [activitySortOrder, setActivitySortOrder] = useState<"newest" | "oldest">("newest")
+  const [visibleActivityGroups, setVisibleActivityGroups] = useState(10)
+  const [expandedActivityRows, setExpandedActivityRows] = useState<string[]>([])
+
   const [templateSaveState, setTemplateSaveState] = useState<{
     type: "idle" | "dirty" | "saving" | "saved" | "error"
     message: string
@@ -110,9 +179,14 @@ export default function FundRaiserEmailsPage() {
     type: "idle",
     message: "",
   })
-  const [activityStatusFilter, setActivityStatusFilter] = useState<"all" | "sent" | "queued" | "failed">("all")
-  const [activityCampaignFilter, setActivityCampaignFilter] = useState<string>("all")
-  const [activitySortOrder, setActivitySortOrder] = useState<"newest" | "oldest">("newest")
+
+  const [workflowActionState, setWorkflowActionState] = useState<{
+    type: "idle" | "success" | "error"
+    message: string
+  }>({
+    type: "idle",
+    message: "",
+  })
   const [visibleActivityCount, setVisibleActivityCount] = useState(10)
 
   const emailAutomationController = useMemo(
@@ -229,6 +303,7 @@ export default function FundRaiserEmailsPage() {
       setTemplateBody(selectedWorkflow.template.bodyTemplate)
     }
     setTemplateSaveState({ type: "idle", message: "" })
+    setWorkflowActionState({ type: "idle", message: "" })
   }, [selectedWorkflow?.template?.ruleKey, selectedWorkflow?.template?.subjectTemplate, selectedWorkflow?.template?.bodyTemplate])
 
   useEffect(() => {
@@ -368,6 +443,8 @@ export default function FundRaiserEmailsPage() {
     if (!selectedWorkflow?.template) return
 
     try {
+      setWorkflowActionState({ type: "idle", message: "" })
+
       const result = await emailAutomationController.sendQuickTestEmail({
         ruleKey: selectedWorkflow.rule.key,
         templateSummary: selectedWorkflow.template,
@@ -377,8 +454,16 @@ export default function FundRaiserEmailsPage() {
       })
 
       setActivityLogs((current) => [result.log, ...current])
+      setWorkflowActionState({
+        type: "success",
+        message: "Quick test sent successfully. Test email sent to the configured SMTP inbox.",
+      })
       toast({ title: "Quick test sent", description: "Test email sent to the configured SMTP inbox." })
     } catch (error) {
+      setWorkflowActionState({
+        type: "error",
+        message: error instanceof Error ? error.message : "Unable to send quick test.",
+      })
       toast({
         title: "Unable to send quick test",
         description: error instanceof Error ? error.message : "Please try again.",
@@ -387,30 +472,37 @@ export default function FundRaiserEmailsPage() {
     }
   }
 
-  const handleAutomaticDelivery = async (deliveryMode: "send" | "queue") => {
+  const handleAutomaticDelivery = async () => {
     if (!selectedWorkflow?.template) return
 
     try {
+      setWorkflowActionState({ type: "idle", message: "" })
+
       const result = await emailAutomationController.deliverAutomaticWorkflowEmail({
         ruleKey: selectedWorkflow.rule.key,
         templateSummary: selectedWorkflow.template,
         fundRaiserUser: resolvedFundRaiserUser,
         campaign: selectedCampaign,
-        deliveryMode,
+        deliveryMode: "send",
         logs: activityLogs,
       })
 
       setActivityLogs((current) => [result.log, ...current])
+      setWorkflowActionState({
+        type: "success",
+        message: `Workflow email sent successfully to ${result.deliveredCount} recipient${result.deliveredCount === 1 ? "" : "s"}.`,
+      })
       toast({
-        title: deliveryMode === "send" ? "Triggered workflow sent" : "Triggered workflow queued",
-        description:
-          deliveryMode === "send"
-            ? `Email sent to ${result.deliveredCount} recipient${result.deliveredCount === 1 ? "" : "s"}.`
-            : "The matched event was queued for this workflow.",
+        title: "Workflow sent",
+        description: `Email sent to ${result.deliveredCount} recipient${result.deliveredCount === 1 ? "" : "s"}.`,
       })
     } catch (error) {
+      setWorkflowActionState({
+        type: "error",
+        message: error instanceof Error ? error.message : "Unable to send workflow.",
+      })
       toast({
-        title: deliveryMode === "send" ? "Unable to send workflow" : "Unable to queue workflow",
+        title: "Unable to send workflow",
         description: error instanceof Error ? error.message : "Please review the selected campaign and try again.",
         variant: "destructive",
       })
@@ -546,6 +638,55 @@ export default function FundRaiserEmailsPage() {
     toast({ title: "Draft deleted", description: "The saved draft was removed." })
   }
 
+
+  const groupedActivityLogs = useMemo(() => groupEmailActivity(dashboard.logs), [dashboard.logs])
+
+  const activityCampaignOptions = useMemo(
+    () =>
+      Array.from(
+        new Map(
+          groupedActivityLogs
+            .filter((log) => log.campaignTitle)
+            .map((log) => [log.campaignId || log.campaignTitle || "unknown", { id: log.campaignId || log.campaignTitle || "unknown", title: log.campaignTitle || "No campaign" }])
+        ).values()
+      ),
+    [groupedActivityLogs]
+  )
+
+  const filteredGroupedActivityLogs = useMemo(() => {
+    const filtered = groupedActivityLogs.filter((log) => {
+      const statusMatches = activityStatusFilter === "all" || log.status === activityStatusFilter
+      const campaignMatches =
+        activityCampaignFilter === "all" || (log.campaignId || log.campaignTitle || "unknown") === activityCampaignFilter
+
+      return statusMatches && campaignMatches
+    })
+
+    filtered.sort((a, b) =>
+      activitySortOrder === "newest"
+        ? new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime()
+        : new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime()
+    )
+
+    return filtered
+  }, [groupedActivityLogs, activityStatusFilter, activityCampaignFilter, activitySortOrder])
+
+  const visibleGroupedActivityLogs = useMemo(
+    () => filteredGroupedActivityLogs.slice(0, visibleActivityGroups),
+    [filteredGroupedActivityLogs, visibleActivityGroups]
+  )
+
+  useEffect(() => {
+    setVisibleActivityGroups(10)
+    setExpandedActivityRows([])
+  }, [activityStatusFilter, activityCampaignFilter, activitySortOrder])
+
+  const toggleActivityRow = (groupId: string) => {
+    setExpandedActivityRows((current) =>
+      current.includes(groupId) ? current.filter((item) => item !== groupId) : [...current, groupId]
+    )
+  }
+
   const automaticActionsDisabled =
     isLoadingEmailData || !selectedWorkflow?.rule.isEnabled || !selectedTrigger?.isReadyNow || !selectedWorkflow?.template
   const hasTemplateChanges =
@@ -558,49 +699,7 @@ export default function FundRaiserEmailsPage() {
   const manualDeliveryDisabled =
     isLoadingEmailData || !generatedDraft || !selectedSegment || selectedSegment.recipientsWithEmailCount <= 0
 
-  const activityCampaignOptions = useMemo(
-    () =>
-      Array.from(
-        new Map(
-          dashboard.logs
-            .filter((log) => log.campaignTitle || log.campaignId)
-            .map((log) => [log.campaignId || log.campaignTitle || "unknown", log.campaignTitle || "No campaign"])
-        ).entries()
-      ).map(([value, label]) => ({ value, label })),
-    [dashboard.logs]
-  )
 
-  const filteredActivityLogs = useMemo(() => {
-    const logs = [...dashboard.logs].filter((log) => {
-      if (activityStatusFilter !== "all" && log.status !== activityStatusFilter) {
-        return false
-      }
-
-      if (
-        activityCampaignFilter !== "all" &&
-        (log.campaignId || log.campaignTitle || "unknown") !== activityCampaignFilter
-      ) {
-        return false
-      }
-
-      return true
-    })
-
-    logs.sort((left, right) => {
-      const leftTime = new Date(left.sentAt).getTime()
-      const rightTime = new Date(right.sentAt).getTime()
-      return activitySortOrder === "newest" ? rightTime - leftTime : leftTime - rightTime
-    })
-
-    return logs
-  }, [dashboard.logs, activityStatusFilter, activityCampaignFilter, activitySortOrder])
-
-  const visibleActivityLogs = filteredActivityLogs.slice(0, visibleActivityCount)
-  const hasMoreActivityLogs = filteredActivityLogs.length > visibleActivityCount
-
-  useEffect(() => {
-    setVisibleActivityCount(10)
-  }, [activityStatusFilter, activityCampaignFilter, activitySortOrder, dashboard.logs])
 
   return (
     <DashboardLayout role="fund_raiser">
@@ -719,7 +818,7 @@ export default function FundRaiserEmailsPage() {
     <CardHeader>
       <CardTitle>{selectedWorkflow?.template?.label || "Workflow template"}</CardTitle>
       <CardDescription>
-        Edit the selected workflow template, then test, queue, or send it when needed.
+        Edit the selected workflow template, then test or send it when needed.
       </CardDescription>
     </CardHeader>
     <CardContent className="space-y-4">
@@ -771,7 +870,7 @@ export default function FundRaiserEmailsPage() {
       </div>
 
       <div className="rounded-lg border bg-muted/30 p-3 text-sm text-muted-foreground">
-        Supported placeholders: <code>{"{{campaignTitle}}"}</code>, <code>{"{{raisedAmount}}"}</code>, <code>{"{{targetAmount}}"}</code>, <code>{"{{donorCount}}"}</code>, <code>{"{{milestonePercent}}"}</code>, <code>{"{{fundRaiserName}}"}</code>, <code>{"{{recipientLabel}}"}</code>
+        Supported placeholders: <code>{"{{campaignTitle}}"}</code>, <code>{"{{raisedAmount}}"}</code>, <code>{"{{targetAmount}}"}</code>, <code>{"{{donorCount}}"}</code>, <code>{"{{milestonePercent}}"}</code>, <code>{"{{fundRaiserName}}"}</code>, <code>{"{{recipientLabel}}"}</code>, <code>{"{{campaignUpdateTitle}}"}</code>, <code>{"{{campaignUpdateContent}}"}</code>, <code>{"{{campaignUpdateDate}}"}</code>
       </div>
 
       {!isCoachingWorkflow && templateSaveState.message ? (
@@ -787,6 +886,20 @@ export default function FundRaiserEmailsPage() {
           }`}
         >
           {templateSaveState.message}
+        </div>
+      ) : null}
+
+      {workflowActionState.message ? (
+        <div
+          className={`rounded-lg border p-3 text-sm ${
+            workflowActionState.type === "success"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              : workflowActionState.type === "error"
+              ? "border-destructive/30 bg-destructive/5 text-destructive"
+              : "border-muted bg-muted/30 text-muted-foreground"
+          }`}
+        >
+          {workflowActionState.message}
         </div>
       ) : null}
 
@@ -811,20 +924,16 @@ export default function FundRaiserEmailsPage() {
           <Mail className="mr-2 h-4 w-4" />
           Quick test
         </Button>
-        <Button type="button" variant="outline" onClick={() => handleAutomaticDelivery("queue")} disabled={automaticActionsDisabled} className="cursor-pointer disabled:cursor-not-allowed">
-          <Clock3 className="mr-2 h-4 w-4" />
-          Queue triggered workflow
-        </Button>
-        <Button type="button" onClick={() => handleAutomaticDelivery("send")} disabled={automaticActionsDisabled} className="cursor-pointer disabled:cursor-not-allowed">
+        <Button type="button" onClick={handleAutomaticDelivery} disabled={automaticActionsDisabled} className="cursor-pointer disabled:cursor-not-allowed">
           <Send className="mr-2 h-4 w-4" />
-          Send triggered workflow
+          Send workflow now
         </Button>
       </div>
 
       {automaticActionsDisabled ? (
         <p className="text-sm text-muted-foreground">
           {!selectedWorkflow?.rule.isEnabled
-            ? "Turn this workflow on before queueing or sending it."
+            ? "Turn this workflow on before sending it."
             : selectedTrigger?.statusReason || "This workflow is waiting for its trigger condition."}
         </p>
       ) : null}
@@ -995,14 +1104,13 @@ export default function FundRaiserEmailsPage() {
             <CardHeader>
               <CardTitle>Email activity</CardTitle>
               <CardDescription>
-                Recent workflow tests, queued emails, and sent emails from both the automatic and manual sections.
+                Recent workflow tests and sent emails from both the automatic and manual sections.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid gap-3 md:grid-cols-3">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Status</label>
-                  <Select value={activityStatusFilter} onValueChange={(value) => setActivityStatusFilter(value as "all" | "sent" | "queued" | "failed")}>
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <Select value={activityStatusFilter} onValueChange={(value) => setActivityStatusFilter(value as "all" | EmailLogSummary["status"])}>
                     <SelectTrigger className="cursor-pointer">
                       <SelectValue placeholder="Filter by status" />
                     </SelectTrigger>
@@ -1013,30 +1121,24 @@ export default function FundRaiserEmailsPage() {
                       <SelectItem value="failed">Failed</SelectItem>
                     </SelectContent>
                   </Select>
-                </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Campaign</label>
                   <Select value={activityCampaignFilter} onValueChange={setActivityCampaignFilter}>
                     <SelectTrigger className="cursor-pointer">
                       <SelectValue placeholder="Filter by campaign" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All campaigns</SelectItem>
-                      {activityCampaignOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
+                      {activityCampaignOptions.map((campaignOption) => (
+                        <SelectItem key={campaignOption.id} value={campaignOption.id}>
+                          {campaignOption.title}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Sort</label>
                   <Select value={activitySortOrder} onValueChange={(value) => setActivitySortOrder(value as "newest" | "oldest")}>
                     <SelectTrigger className="cursor-pointer">
-                      <SelectValue placeholder="Sort activity" />
+                      <SelectValue placeholder="Sort order" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="newest">Newest first</SelectItem>
@@ -1044,68 +1146,109 @@ export default function FundRaiserEmailsPage() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                <p className="text-sm text-muted-foreground">
+                  Showing {Math.min(visibleGroupedActivityLogs.length, filteredGroupedActivityLogs.length)} of {filteredGroupedActivityLogs.length} email activities
+                </p>
               </div>
 
-              <div className="rounded-lg border">
-                <Table>
-                  <TableHeader>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Workflow</TableHead>
+                    <TableHead>Campaign</TableHead>
+                    <TableHead>Recipients</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Subject</TableHead>
+                    <TableHead>Date sent</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredGroupedActivityLogs.length === 0 ? (
                     <TableRow>
-                      <TableHead>Workflow</TableHead>
-                      <TableHead>Recipient</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Date sent</TableHead>
+                      <TableCell colSpan={6} className="text-center text-muted-foreground">
+                        No email activity yet. Run a quick test or send a workflow/manual email to populate the activity log.
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredActivityLogs.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={5} className="text-center text-muted-foreground">
-                          No email activity yet. Run a quick test, queue a workflow, or send a manual update.
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      visibleActivityLogs.map((log) => (
-                        <TableRow key={log.id}>
-                          <TableCell>
-                            <div className="space-y-1">
-                              <p className="font-medium">{log.ruleLabel}</p>
-                              <p className="text-xs text-muted-foreground">{log.campaignTitle || "No campaign"}</p>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="space-y-1">
-                              <p>{log.recipientName}</p>
-                              {log.recipientEmail ? (
-                                <p className="text-xs text-muted-foreground">{log.recipientEmail}</p>
-                              ) : null}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={log.status === "sent" ? "default" : "secondary"}>{log.statusLabel}</Badge>
-                          </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">{formatDateTime(log.sentAt)}</TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
+                  ) : (
+                    visibleGroupedActivityLogs.flatMap((group) => {
+                      const isExpanded = expandedActivityRows.includes(group.id)
 
-              {filteredActivityLogs.length > 0 ? (
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm text-muted-foreground">
-                    Showing {visibleActivityLogs.length} of {filteredActivityLogs.length} activity records.
-                  </p>
-                  {hasMoreActivityLogs ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setVisibleActivityCount((current) => current + 10)}
-                      className="cursor-pointer disabled:cursor-not-allowed"
-                    >
-                      Show 10 more
-                    </Button>
-                  ) : null}
+                      return [
+                        <TableRow key={group.id}>
+                          <TableCell>
+                            <div className="space-y-1">
+                              <p className="font-medium">{group.ruleLabel}</p>
+                              <p className="text-xs text-muted-foreground">{group.ruleKey}</p>
+                            </div>
+                          </TableCell>
+                          <TableCell>{group.campaignTitle || "No campaign"}</TableCell>
+                          <TableCell>
+                            <div className="space-y-2">
+                              <p className="font-medium">{group.recipientCount} recipient{group.recipientCount === 1 ? "" : "s"}</p>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-auto px-0 py-0 text-sm cursor-pointer"
+                                onClick={() => toggleActivityRow(group.id)}
+                              >
+                                {isExpanded ? (
+                                  <>
+                                    <ChevronDown className="mr-1 h-4 w-4" />
+                                    Hide recipients
+                                  </>
+                                ) : (
+                                  <>
+                                    <ChevronRight className="mr-1 h-4 w-4" />
+                                    Show recipients
+                                  </>
+                                )}
+                              </Button>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={group.status === "sent" ? "default" : group.status === "failed" ? "destructive" : "secondary"}>
+                              {group.statusLabel}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="max-w-[280px] truncate">{group.subject}</TableCell>
+                          <TableCell>{formatDateTime(group.sentAt)}</TableCell>
+                        </TableRow>,
+                        ...(isExpanded
+                          ? [
+                              <TableRow key={`${group.id}-expanded`}>
+                                <TableCell colSpan={6} className="bg-muted/20">
+                                  <div className="space-y-2 py-1">
+                                    <p className="text-sm font-medium">Recipients</p>
+                                    <div className="space-y-2">
+                                      {group.recipients.map((recipient, index) => (
+                                        <div key={`${group.id}-${recipient.email || recipient.name}-${index}`} className="rounded-md border bg-background px-3 py-2 text-sm">
+                                          <p className="text-muted-foreground">{recipient.name || recipient.email || "Unnamed recipient"}</p>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </TableCell>
+                              </TableRow>,
+                            ]
+                          : []),
+                      ]
+                    })
+                  )}
+                </TableBody>
+              </Table>
+
+              {filteredGroupedActivityLogs.length > visibleGroupedActivityLogs.length ? (
+                <div className="flex justify-center">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="cursor-pointer"
+                    onClick={() => setVisibleActivityGroups((current) => current + 10)}
+                  >
+                    Show 10 more
+                  </Button>
                 </div>
               ) : null}
             </CardContent>

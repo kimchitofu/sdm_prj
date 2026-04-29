@@ -114,6 +114,12 @@ interface SendEmailRoutePayload {
   useConfiguredSenderAsRecipient?: boolean
 }
 
+export interface CampaignUpdateTemplateContext {
+  title?: string
+  content?: string
+  createdAt?: string
+}
+
 export interface EmailDeliveryResult {
   log: EmailLogSummary
   deliveredCount: number
@@ -1010,16 +1016,37 @@ export class EmailAutomationController {
     }
   }
 
+  buildWorkflowTemplateReplacements(input: {
+    fundRaiserUser: User
+    campaign?: Campaign
+    selectedSegment?: EmailSegmentAudienceSummary
+    fallbackRecipientLabel?: string
+    campaignUpdate?: CampaignUpdateTemplateContext
+  }): Record<string, string | number | undefined> {
+    return this.buildTemplateReplacements(
+      input.fundRaiserUser,
+      input.campaign,
+      input.selectedSegment,
+      input.fallbackRecipientLabel,
+      input.campaignUpdate
+    )
+  }
+
   private buildTemplateReplacements(
     fundRaiserUser: User,
     campaign?: Campaign,
     selectedSegment?: EmailSegmentAudienceSummary,
-    fallbackRecipientLabel?: string
+    fallbackRecipientLabel?: string,
+    campaignUpdate?: CampaignUpdateTemplateContext
   ): Record<string, string | number | undefined> {
     const milestonePercent =
       campaign && campaign.targetAmount > 0
         ? Math.round((campaign.raisedAmount / campaign.targetAmount) * 100)
         : undefined
+
+    const campaignUpdateDate = campaignUpdate?.createdAt
+      ? new Date(campaignUpdate.createdAt).toLocaleString()
+      : undefined
 
     return {
       campaignTitle: campaign?.title,
@@ -1029,6 +1056,9 @@ export class EmailAutomationController {
       recipientLabel: selectedSegment?.label || fallbackRecipientLabel || "supporters",
       milestonePercent,
       fundRaiserName: fundRaiserUser.displayName,
+      campaignUpdateTitle: campaignUpdate?.title,
+      campaignUpdateContent: campaignUpdate?.content,
+      campaignUpdateDate,
     }
   }
 
