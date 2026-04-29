@@ -13,8 +13,9 @@ export function getRedirectForRole(role?: UserRole) {
     case 'fund_raiser':
       return '/dashboard/fund-raiser'
     case 'donee':
-    case 'donor':
       return '/dashboard/donee'
+    case 'donor':
+      return '/dashboard/donor'
     case 'admin':
       return '/dashboard/admin/users'
     case 'platform_manager':

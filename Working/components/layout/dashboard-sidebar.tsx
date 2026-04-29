@@ -57,6 +57,13 @@ const doneeNavItems: NavItem[] = [
   { href: "/dashboard/donee/donations", label: "Donation History", icon: <History className="h-5 w-5" /> },
 ]
 
+const donorNavItems: NavItem[] = [
+  { href: "/dashboard/donor", label: "Dashboard", icon: <LayoutDashboard className="h-5 w-5" /> },
+  { href: "/browse", label: "Browse Campaigns", icon: <Search className="h-5 w-5" /> },
+  { href: "/dashboard/donor/favourites", label: "Favourites", icon: <Heart className="h-5 w-5" /> },
+  { href: "/dashboard/donor/donations", label: "Donation History", icon: <History className="h-5 w-5" /> },
+]
+
 const fundRaiserNavItems: NavItem[] = [
   { href: "/dashboard/fund-raiser", label: "Dashboard", icon: <LayoutDashboard className="h-5 w-5" /> },
   { href: "/dashboard/fund-raiser/campaigns/new", label: "Create Campaign", icon: <PlusCircle className="h-5 w-5" /> },
@@ -85,6 +92,8 @@ const getNavItems = (role: UserRole): NavItem[] => {
   switch (role) {
     case "donee":
       return doneeNavItems
+    case "donor":
+      return donorNavItems
     case "fund_raiser":
       return fundRaiserNavItems
     case "admin":
@@ -100,6 +109,8 @@ const getRoleLabel = (role: UserRole): string => {
   switch (role) {
     case "donee":
       return "Donee"
+    case "donor":
+      return "Donor"
     case "fund_raiser":
       return "Fund Raiser"
     case "admin":
@@ -114,6 +125,7 @@ const getRoleLabel = (role: UserRole): string => {
 function isNavItemActive(pathname: string, href: string) {
   const exactOnlyRoutes = new Set([
     "/dashboard/donee",
+    "/dashboard/donor",
     "/dashboard/fund-raiser",
     "/dashboard/platform",
     "/dashboard/admin",
