@@ -1,17 +1,15 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import Link from "next/link"
 import {
-  Heart,
   Search,
-  Grid3X3,
-  List,
-  SlidersHorizontal,
-  X,
-  ArrowUpDown,
+  BookOpen,
   Trash2,
-  ExternalLink,
+  ArrowRight,
+  HandHeart,
+  X,
+  SlidersHorizontal,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -37,331 +35,241 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { DashboardLayout } from "@/components/layout/dashboard-sidebar"
-import { campaigns, categories, users } from "@/lib/mock-data"
+import { campaigns, categories } from "@/lib/mock-data"
 
-const donorUser =
-  users.find(u => u.role === 'donor') || users.find(u => u.role === 'donee') || users[0]
+// ── Data ─────────────────────────────────────────────────────────────────────
 
-const favouritedCampaigns = campaigns.filter(c => c.status === 'active').slice(0, 6)
+const fallbackDonorUser = {
+  email: "donor@example.com",
+  displayName: "David Chen",
+  role: "donor",
+}
+
+const initialSaved = campaigns.filter(c => c.status === "active").slice(0, 6)
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function fmt(n: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 0,
+  }).format(n)
+}
+
+function daysLeft(endDate: string) {
+  return Math.max(
+    0,
+    Math.ceil((new Date(endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+  )
+}
+
+// ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function DonorFavouritesPage() {
-  const [searchQuery, setSearchQuery] = useState("")
-  const [categoryFilter, setCategoryFilter] = useState<string>("all")
-  const [sortBy, setSortBy] = useState<string>("date_added")
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
-  const [favourites, setFavourites] = useState(favouritedCampaigns)
+  const [saved, setSaved] = useState(initialSaved)
+  const [search, setSearch] = useState("")
+  const [category, setCategory] = useState("all")
+  const [sortBy, setSortBy] = useState("added")
 
-  const filteredCampaigns = favourites.filter(campaign => {
-    const matchesSearch =
-      campaign.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      campaign.summary.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesCategory =
-      categoryFilter === "all" || campaign.category === categoryFilter
-    return matchesSearch && matchesCategory
-  })
-
-  const sortedCampaigns = [...filteredCampaigns].sort((a, b) => {
-    switch (sortBy) {
-      case "ending_soon":
-        return new Date(a.endDate).getTime() - new Date(b.endDate).getTime()
-      case "most_funded":
-        return b.raisedAmount / b.targetAmount - a.raisedAmount / a.targetAmount
-      case "newest":
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      default:
+  const filtered = useMemo(() => {
+    return saved
+      .filter(c => {
+        const matchesSearch =
+          c.title.toLowerCase().includes(search.toLowerCase()) ||
+          c.summary.toLowerCase().includes(search.toLowerCase())
+        const matchesCategory = category === "all" || c.category === category
+        return matchesSearch && matchesCategory
+      })
+      .sort((a, b) => {
+        if (sortBy === "ending") return new Date(a.endDate).getTime() - new Date(b.endDate).getTime()
+        if (sortBy === "funded") return b.raisedAmount / b.targetAmount - a.raisedAmount / a.targetAmount
+        if (sortBy === "newest") return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         return 0
-    }
-  })
+      })
+  }, [saved, search, category, sortBy])
 
-  const removeFavourite = (campaignId: string) => {
-    setFavourites(favourites.filter(c => c.id !== campaignId))
-  }
-
-  const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 0,
-    }).format(amount)
+  const remove = (id: string) => setSaved(prev => prev.filter(c => c.id !== id))
+  const hasFilters = search || category !== "all"
 
   return (
     <DashboardLayout
       role="donor"
-      user={{
-        name: donorUser.displayName,
-        email: donorUser.email,
-        avatar: donorUser.avatar,
-        role: "Donor",
-      }}
+      user={{ name: fallbackDonorUser.displayName, email: fallbackDonorUser.email, role: "Donor" }}
     >
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">My Favourites</h1>
-        <p className="text-muted-foreground">
-          Campaigns you&apos;ve saved for later.{" "}
-          {favourites.length} campaign{favourites.length !== 1 ? "s" : ""} saved.
+        <div className="flex items-center gap-3 mb-1">
+          <BookOpen className="h-6 w-6 text-primary" />
+          <h1 className="text-2xl md:text-3xl font-bold">My Saved Causes</h1>
+        </div>
+        <p className="text-sm text-muted-foreground ml-9">
+          {saved.length} campaign{saved.length !== 1 ? "s" : ""} saved — donate or remove any time.
         </p>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col md:flex-row gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row gap-3 mb-7">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search favourites…"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            className="pl-10"
+            placeholder="Search saved causes…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="pl-9"
           />
         </div>
-        <div className="flex gap-2">
-          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-[160px]">
-              <SlidersHorizontal className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Category" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
-              {categories.map(cat => (
-                <SelectItem key={cat.id} value={cat.name}>
-                  {cat.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="w-[160px]">
-              <ArrowUpDown className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Sort by" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="date_added">Date Added</SelectItem>
-              <SelectItem value="ending_soon">Ending Soon</SelectItem>
-              <SelectItem value="most_funded">Most Funded</SelectItem>
-              <SelectItem value="newest">Newest</SelectItem>
-            </SelectContent>
-          </Select>
-          <div className="flex border rounded-lg">
-            <Button
-              variant={viewMode === "grid" ? "secondary" : "ghost"}
-              size="icon"
-              onClick={() => setViewMode("grid")}
-            >
-              <Grid3X3 className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={viewMode === "list" ? "secondary" : "ghost"}
-              size="icon"
-              onClick={() => setViewMode("list")}
-            >
-              <List className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
+        <Select value={category} onValueChange={setCategory}>
+          <SelectTrigger className="w-full sm:w-44">
+            <SlidersHorizontal className="h-4 w-4 mr-2 text-muted-foreground" />
+            <SelectValue placeholder="Category" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Categories</SelectItem>
+            {categories.map(c => (
+              <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={sortBy} onValueChange={setSortBy}>
+          <SelectTrigger className="w-full sm:w-40">
+            <SelectValue placeholder="Sort by" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="added">Recently Saved</SelectItem>
+            <SelectItem value="ending">Ending Soon</SelectItem>
+            <SelectItem value="funded">Most Funded</SelectItem>
+            <SelectItem value="newest">Newest Campaign</SelectItem>
+          </SelectContent>
+        </Select>
+        {hasFilters && (
+          <Button variant="ghost" size="icon" onClick={() => { setSearch(""); setCategory("all") }}>
+            <X className="h-4 w-4" />
+          </Button>
+        )}
       </div>
 
-      {/* Results */}
-      {sortedCampaigns.length > 0 ? (
-        viewMode === "grid" ? (
-          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {sortedCampaigns.map(campaign => {
-              const progress = (campaign.raisedAmount / campaign.targetAmount) * 100
-              const daysRemaining = Math.max(
-                0,
-                Math.ceil(
-                  (new Date(campaign.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-                )
-              )
+      {/* Grid */}
+      {filtered.length > 0 ? (
+        <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-5">
+          {filtered.map(campaign => {
+            const pct = Math.min(100, Math.round((campaign.raisedAmount / campaign.targetAmount) * 100))
+            const remaining = daysLeft(campaign.endDate)
 
-              return (
-                <Card key={campaign.id} className="overflow-hidden group hover:shadow-lg transition-all">
-                  <div className="relative aspect-video bg-muted overflow-hidden">
-                    <img
-                      src={campaign.coverImage}
-                      alt={campaign.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                    <div className="absolute top-3 right-3">
-                      <Badge variant="secondary">{campaign.category}</Badge>
-                    </div>
+            return (
+              <Card key={campaign.id} className="group overflow-hidden flex flex-col hover:shadow-lg transition-shadow">
+                {/* Cover image */}
+                <div className="relative h-44 overflow-hidden bg-muted">
+                  <img
+                    src={campaign.coverImage}
+                    alt={campaign.title}
+                    className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                  {/* Category pill on image */}
+                  <div className="absolute bottom-3 left-3">
+                    <Badge className="text-xs bg-black/60 text-white border-0 backdrop-blur-sm">
+                      {campaign.category}
+                    </Badge>
                   </div>
-                  <CardContent className="p-4">
-                    <Link href={`/campaign/${campaign.id}`}>
-                      <h3 className="font-semibold text-foreground mb-2 line-clamp-2 hover:text-primary transition-colors">
-                        {campaign.title}
-                      </h3>
-                    </Link>
-                    <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-                      {campaign.summary}
-                    </p>
-                    <div className="space-y-3">
-                      <Progress value={progress} className="h-2" />
-                      <div className="flex justify-between text-sm">
-                        <span className="font-semibold text-primary">
-                          {formatCurrency(campaign.raisedAmount)}
-                        </span>
-                        <span className="text-muted-foreground">{daysRemaining} days left</span>
-                      </div>
+                  {/* Days left pill */}
+                  {remaining <= 14 && (
+                    <div className="absolute top-3 right-3">
+                      <Badge variant="destructive" className="text-xs">
+                        {remaining}d left
+                      </Badge>
                     </div>
-                    <div className="flex gap-2 mt-4">
-                      <Link href={`/campaign/${campaign.id}`} className="flex-1">
-                        <Button className="w-full" size="sm">
-                          Donate Now
-                        </Button>
-                      </Link>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="outline" size="icon" className="shrink-0">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Remove from favourites?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This will remove &ldquo;{campaign.title}&rdquo; from your saved
-                              campaigns.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => removeFavourite(campaign.id)}>
-                              Remove
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
-                  </CardContent>
-                </Card>
-              )
-            })}
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {sortedCampaigns.map(campaign => {
-              const progress = (campaign.raisedAmount / campaign.targetAmount) * 100
-              const daysRemaining = Math.max(
-                0,
-                Math.ceil(
-                  (new Date(campaign.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-                )
-              )
+                  )}
+                </div>
 
-              return (
-                <Card key={campaign.id} className="overflow-hidden">
-                  <CardContent className="p-0">
-                    <div className="flex flex-col md:flex-row">
-                      <div className="relative w-full md:w-48 aspect-video md:aspect-square bg-muted shrink-0">
-                        <img
-                          src={campaign.coverImage}
-                          alt={campaign.title}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div className="flex-1 p-4">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1">
-                            <div className="flex gap-2 mb-2">
-                              <Badge variant="secondary">{campaign.category}</Badge>
-                              <Badge variant="outline">{campaign.serviceType}</Badge>
-                            </div>
-                            <Link href={`/campaign/${campaign.id}`}>
-                              <h3 className="font-semibold text-foreground mb-1 hover:text-primary transition-colors">
-                                {campaign.title}
-                              </h3>
-                            </Link>
-                            <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-                              {campaign.summary}
-                            </p>
-                            <div className="space-y-2">
-                              <Progress value={progress} className="h-2" />
-                              <div className="flex gap-4 text-sm flex-wrap">
-                                <span className="font-semibold text-primary">
-                                  {formatCurrency(campaign.raisedAmount)} raised
-                                </span>
-                                <span className="text-muted-foreground">
-                                  {Math.round(progress)}% of {formatCurrency(campaign.targetAmount)}
-                                </span>
-                                <span className="text-muted-foreground">{daysRemaining} days left</span>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex flex-col gap-2">
-                            <Link href={`/campaign/${campaign.id}`}>
-                              <Button size="sm">Donate</Button>
-                            </Link>
-                            <Link href={`/campaign/${campaign.id}`}>
-                              <Button variant="outline" size="sm">
-                                <ExternalLink className="h-4 w-4 mr-1" />
-                                View
-                              </Button>
-                            </Link>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="text-muted-foreground"
-                                >
-                                  <Trash2 className="h-4 w-4 mr-1" />
-                                  Remove
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Remove from favourites?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    This will remove &ldquo;{campaign.title}&rdquo; from your saved
-                                    campaigns.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => removeFavourite(campaign.id)}>
-                                    Remove
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </div>
-                        </div>
-                      </div>
+                <CardContent className="flex flex-col flex-1 p-4 gap-3">
+                  {/* Title */}
+                  <Link href={`/campaign/${campaign.id}`}>
+                    <h3 className="font-semibold text-sm leading-snug line-clamp-2 hover:text-primary transition-colors">
+                      {campaign.title}
+                    </h3>
+                  </Link>
+
+                  {/* Summary */}
+                  <p className="text-xs text-muted-foreground line-clamp-2 flex-1">
+                    {campaign.summary}
+                  </p>
+
+                  {/* Progress */}
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between text-xs">
+                      <span className="font-semibold text-primary">{fmt(campaign.raisedAmount)}</span>
+                      <span className="text-muted-foreground">{pct}% of {fmt(campaign.targetAmount)}</span>
                     </div>
-                  </CardContent>
-                </Card>
-              )
-            })}
-          </div>
-        )
+                    <Progress value={pct} className="h-1.5" />
+                    <p className="text-xs text-muted-foreground">{remaining} days remaining</p>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-2 pt-1">
+                    <Link href={`/campaign/${campaign.id}`} className="flex-1">
+                      <Button size="sm" className="w-full gap-1.5">
+                        <HandHeart className="h-3.5 w-3.5" />
+                        Donate
+                      </Button>
+                    </Link>
+                    <Link href={`/campaign/${campaign.id}`}>
+                      <Button variant="outline" size="sm" className="px-3">
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </Button>
+                    </Link>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="px-3 text-muted-foreground hover:text-destructive"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Remove from saved causes?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            &ldquo;{campaign.title}&rdquo; will be removed from your saved list.
+                            You can always save it again.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Keep it</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => remove(campaign.id)}>
+                            Remove
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
       ) : (
         <Card>
-          <CardContent className="py-16 text-center">
+          <CardContent className="py-20 text-center">
             <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-              <Heart className="h-8 w-8 text-muted-foreground" />
+              <BookOpen className="h-8 w-8 text-muted-foreground" />
             </div>
-            <h3 className="text-lg font-semibold text-foreground mb-2">
-              {searchQuery || categoryFilter !== "all" ? "No matching favourites" : "No favourites yet"}
+            <h3 className="text-lg font-semibold mb-2">
+              {hasFilters ? "No matching causes" : "No saved causes yet"}
             </h3>
-            <p className="text-muted-foreground mb-4 max-w-md mx-auto">
-              {searchQuery || categoryFilter !== "all"
-                ? "Try adjusting your search or filters to find campaigns."
-                : "Start browsing campaigns and save the ones you'd like to support later."}
+            <p className="text-sm text-muted-foreground mb-5 max-w-xs mx-auto">
+              {hasFilters
+                ? "Try clearing your filters."
+                : "Browse campaigns and tap the heart icon to save causes you care about."}
             </p>
-            {searchQuery || categoryFilter !== "all" ? (
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setSearchQuery("")
-                  setCategoryFilter("all")
-                }}
-              >
-                <X className="h-4 w-4 mr-2" />
-                Clear Filters
+            {hasFilters ? (
+              <Button variant="outline" onClick={() => { setSearch(""); setCategory("all") }}>
+                <X className="h-4 w-4 mr-2" /> Clear Filters
               </Button>
             ) : (
               <Link href="/browse">
-                <Button>Browse Campaigns</Button>
+                <Button>Explore Campaigns</Button>
               </Link>
             )}
           </CardContent>

@@ -467,6 +467,31 @@ async function triggerMilestoneWorkflow(input: {
   }
 }
 
+export async function GET() {
+  const session = await getSession();
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const donations = await prisma.donation.findMany({
+    where: { donorId: session.id },
+    include: {
+      campaign: {
+        select: {
+          id: true,
+          title: true,
+          category: true,
+          raisedAmount: true,
+          targetAmount: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return NextResponse.json({ donations });
+}
+
 export async function POST(request: NextRequest) {
   const {
     campaignId,
@@ -511,6 +536,13 @@ export async function POST(request: NextRequest) {
       { error: "Campaign not found" },
       { status: 404 }
     )
+  }
+
+  if (campaign.status === 'locked') {
+    return NextResponse.json(
+      { error: "This campaign has been locked and cannot accept donations." },
+      { status: 403 }
+    );
   }
 
   const finalDonorName = isAnonymous

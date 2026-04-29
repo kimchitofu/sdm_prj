@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import {
   DollarSign,
   TrendingUp,
@@ -71,8 +72,15 @@ type DashboardData = {
 
 export default function AdminDashboardPage() {
   const { user: sessionUser } = useAuth()
+  const router = useRouter()
   const [data, setData] = useState<DashboardData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    if (sessionUser && sessionUser.role === 'campaign_admin') {
+      router.replace('/dashboard/admin/campaign-dashboard')
+    }
+  }, [sessionUser, router])
 
   useEffect(() => {
     fetch('/api/admin/dashboard')

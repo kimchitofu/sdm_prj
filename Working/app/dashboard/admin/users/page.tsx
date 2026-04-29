@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import {
   Search,
   Filter,
@@ -98,6 +99,13 @@ type AuditLogEntry = {
 
 export default function AdminUsersPage() {
   const { user: sessionUser } = useAuth()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (sessionUser && sessionUser.role === 'campaign_admin') {
+      router.replace('/dashboard/admin/campaign-dashboard')
+    }
+  }, [sessionUser, router])
 
   const [allUsers, setAllUsers] = useState<DbUser[]>([])
   const [flaggedUserIds, setFlaggedUserIds] = useState<Set<string>>(new Set())
