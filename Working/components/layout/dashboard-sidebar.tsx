@@ -31,7 +31,7 @@ import { Separator } from "@/components/ui/separator"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Logo } from "@/components/brand/logo"
 import { UserRole } from "@/lib/types"
-import { useCurrentUser } from "@/hooks/use-current-user"
+import { useAuth } from "@/components/providers/session-provider"
 
 interface NavItem {
   href: string
@@ -75,10 +75,6 @@ const fundRaiserNavItems: NavItem[] = [
 ]
 
 const adminNavItems: NavItem[] = [
-  { href: "/dashboard/admin", label: "Dashboard", icon: <LayoutDashboard className="h-5 w-5" /> },
-  { href: "/dashboard/admin/campaign-dashboard", label: "Campaign Dashboard", icon: <BarChart3 className="h-5 w-5" /> },
-  { href: "/dashboard/admin/campaigns", label: "Campaign Review", icon: <ClipboardCheck className="h-5 w-5" /> },
-  { href: "/dashboard/admin/donation-reports", label: "Donation Reports", icon: <FileText className="h-5 w-5" /> },
   { href: "/dashboard/admin/users", label: "User Management", icon: <Users className="h-5 w-5" /> },
   { href: "/dashboard/admin/announcements", label: "Announcements", icon: <Megaphone className="h-5 w-5" /> },
   { href: "/dashboard/admin/reports-queue", label: "Reports Queue", icon: <Flag className="h-5 w-5" /> },
@@ -263,8 +259,13 @@ function SidebarContent({ role, user, pathname, onNavigate }: {
 export function DashboardSidebar({ role, user }: DashboardSidebarProps) {
   const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = useState(false)
-  const storedUser = useCurrentUser({ displayName: user?.name ?? '', email: user?.email ?? '', avatar: user?.avatar })
-  const resolvedUser = { name: storedUser.displayName, email: storedUser.email, avatar: storedUser.avatar, role: user?.role ?? '' }
+  const { user: sessionUser } = useAuth()
+  const resolvedUser = {
+    name: sessionUser ? `${sessionUser.firstName} ${sessionUser.lastName}` : (user?.name ?? ''),
+    email: sessionUser?.email ?? user?.email ?? '',
+    avatar: user?.avatar,
+    role: user?.role ?? '',
+  }
 
   return (
     <>
