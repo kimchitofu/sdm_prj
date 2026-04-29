@@ -1,10 +1,11 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import {
   CheckCircle2,
-  Clock3,
+  ChevronDown,
+  ChevronRight,
   Mail,
   MessageSquareHeart,
   PencilLine,
@@ -25,17 +26,51 @@ import { StatsCard } from "@/components/ui/stats-card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/hooks/use-toast"
-import { useCurrentUser } from "@/hooks/use-current-user"
 import { EmailAutomationController } from "@/app/controller/EmailAutomationController"
 import { isDonorSegmentKey, type DonorSegmentKey } from "@/app/entity/Donor"
 import { getEmailDraftToneLabel, type EmailDraftPurpose, type EmailDraftSummary, type EmailDraftTone } from "@/app/entity/EmailDraft"
 import type { EmailTriggerKey, EmailAutomationRuleSummary } from "@/app/entity/EmailAutomationRule"
 import type { EmailLogSummary } from "@/app/entity/EmailLog"
 import type { EmailTemplateSummary } from "@/app/entity/EmailTemplate"
-import { campaigns, donations, users } from "@/lib/mock-data"
+import type { Campaign, Donation, User } from "@/lib/types"
 
-const emailAutomationController = new EmailAutomationController(campaigns, donations, users)
-const defaultFundRaiserUser = emailAutomationController.getDefaultFundRaiserUser() || users[0]
+type FundRaiserEmailsResponse = {
+  currentUser: User
+  campaigns: Campaign[]
+  donations: Donation[]
+  users: User[]
+  rules: EmailAutomationRuleSummary[]
+  templates: EmailTemplateSummary[]
+  logs: EmailLogSummary[]
+}
+
+type GroupedEmailActivity = {
+  id: string
+  ruleKey: EmailLogSummary["ruleKey"]
+  ruleLabel: string
+  status: EmailLogSummary["status"]
+  statusLabel: string
+  subject: string
+  campaignId?: string
+  campaignTitle?: string
+  sentAt: string
+  recipientCount: number
+  recipients: Array<{ name: string; email?: string }>
+}
+
+
+const defaultEmailAutomationController = new EmailAutomationController([], [], [])
+const fallbackFundRaiserUser: User = {
+  id: "pending-fundraiser-user",
+  email: "fundraiser@example.com",
+  displayName: "Fund Raiser",
+  firstName: "Fund",
+  lastName: "Raiser",
+  role: "fund_raiser",
+  isVerified: true,
+  status: "active",
+  createdAt: new Date(0).toISOString(),
+}
 const toneOptions: EmailDraftTone[] = ["warm", "appreciative", "professional", "urgent"]
 const emailPurposeOptions: Array<{ value: EmailDraftPurpose; label: string }> = [
   { value: "campaign_update", label: "Campaign update" },
@@ -50,26 +85,68 @@ function formatDateTime(value?: string) {
   if (!value) return "No event timestamp"
   return new Date(value).toLocaleString()
 }
+
+function groupEmailActivity(logs: EmailLogSummary[]): GroupedEmailActivity[] {
+  const grouped = new Map<string, GroupedEmailActivity>()
+
+  for (const log of logs) {
+    const sentAtBucket = log.sentAt ? new Date(Math.floor(new Date(log.sentAt).getTime() / 1000) * 1000).toISOString() : "no-date"
+    const groupKey = [
+      log.ruleKey,
+      log.status,
+      log.subject,
+      log.campaignId || log.campaignTitle || "no-campaign",
+      sentAtBucket,
+    ].join("::")
+
+    const existing = grouped.get(groupKey)
+    if (existing) {
+      existing.recipientCount += 1
+      existing.recipients.push({
+        name: log.recipientName,
+        email: log.recipientEmail,
+      })
+      continue
+    }
+
+    grouped.set(groupKey, {
+      id: groupKey,
+      ruleKey: log.ruleKey,
+      ruleLabel: log.ruleLabel,
+      status: log.status,
+      statusLabel: log.statusLabel,
+      subject: log.subject,
+      campaignId: log.campaignId,
+      campaignTitle: log.campaignTitle,
+      sentAt: log.sentAt,
+      recipientCount: 1,
+      recipients: [
+        {
+          name: log.recipientName,
+          email: log.recipientEmail,
+        },
+      ],
+    })
+  }
+
+  return Array.from(grouped.values())
+}
+
 export default function FundRaiserEmailsPage() {
   const searchParams = useSearchParams()
   const initialSegment = searchParams.get("segment")
   const initialCampaignId = searchParams.get("campaignId") || ""
-  const initialSuggestedCampaignId = emailAutomationController.buildDashboard(
-    defaultFundRaiserUser.id,
-    emailAutomationController.createDefaultRules(),
-    emailAutomationController.createDefaultTemplates(),
-    [],
-    {
-      segment: isDonorSegmentKey(initialSegment) ? initialSegment : undefined,
-      campaignId: initialCampaignId || undefined,
-    }
-  ).suggestedCampaignId || ""
-
   const [activeSection, setActiveSection] = useState<"automatic" | "manual">("automatic")
-  const [rules, setRules] = useState<EmailAutomationRuleSummary[]>(() => emailAutomationController.createDefaultRules())
-  const [templates, setTemplates] = useState<EmailTemplateSummary[]>(() => emailAutomationController.createDefaultTemplates())
+  const [campaignsData, setCampaignsData] = useState<Campaign[]>([])
+  const [donationsData, setDonationsData] = useState<Donation[]>([])
+  const [directoryUsers, setDirectoryUsers] = useState<User[]>([])
+  const [currentFundRaiserUser, setCurrentFundRaiserUser] = useState<User | null>(null)
+  const [rules, setRules] = useState<EmailAutomationRuleSummary[]>(() => defaultEmailAutomationController.createDefaultRules())
+  const [templates, setTemplates] = useState<EmailTemplateSummary[]>(() => defaultEmailAutomationController.createDefaultTemplates())
   const [activityLogs, setActivityLogs] = useState<EmailLogSummary[]>([])
-  const [selectedCampaignId, setSelectedCampaignId] = useState(initialCampaignId || initialSuggestedCampaignId)
+  const [isLoadingEmailData, setIsLoadingEmailData] = useState(true)
+  const [emailDataError, setEmailDataError] = useState("")
+  const [selectedCampaignId, setSelectedCampaignId] = useState(initialCampaignId)
   const [selectedSegmentKey, setSelectedSegmentKey] = useState<DonorSegmentKey>(
     isDonorSegmentKey(initialSegment) ? initialSegment : "high_value"
   )
@@ -89,21 +166,107 @@ export default function FundRaiserEmailsPage() {
     message: "",
   })
 
-  const currentUser = useCurrentUser({
-    id: defaultFundRaiserUser.id,
-    email: defaultFundRaiserUser.email,
-    role: defaultFundRaiserUser.role,
-    displayName: defaultFundRaiserUser.displayName,
-    firstName: defaultFundRaiserUser.firstName,
-    lastName: defaultFundRaiserUser.lastName,
-    isVerified: defaultFundRaiserUser.isVerified,
-    status: defaultFundRaiserUser.status,
-    createdAt: defaultFundRaiserUser.createdAt,
-    avatar: defaultFundRaiserUser.avatar,
+  const [activityStatusFilter, setActivityStatusFilter] = useState<"all" | EmailLogSummary["status"]>("all")
+  const [activityCampaignFilter, setActivityCampaignFilter] = useState<string>("all")
+  const [activitySortOrder, setActivitySortOrder] = useState<"newest" | "oldest">("newest")
+  const [visibleActivityGroups, setVisibleActivityGroups] = useState(10)
+  const [expandedActivityRows, setExpandedActivityRows] = useState<string[]>([])
+
+  const [templateSaveState, setTemplateSaveState] = useState<{
+    type: "idle" | "dirty" | "saving" | "saved" | "error"
+    message: string
+  }>({
+    type: "idle",
+    message: "",
   })
 
-  const resolvedFundRaiserUser =
-    emailAutomationController.resolveFundRaiserUser(currentUser) || defaultFundRaiserUser
+  const [workflowActionState, setWorkflowActionState] = useState<{
+    type: "idle" | "success" | "error"
+    message: string
+  }>({
+    type: "idle",
+    message: "",
+  })
+  const [visibleActivityCount, setVisibleActivityCount] = useState(10)
+
+  const emailAutomationController = useMemo(
+    () => new EmailAutomationController(campaignsData, donationsData, directoryUsers),
+    [campaignsData, donationsData, directoryUsers]
+  )
+
+  const resolvedFundRaiserUser = currentFundRaiserUser || fallbackFundRaiserUser
+
+  const refreshEmailsDashboard = useCallback(async () => {
+    setIsLoadingEmailData(true)
+    setEmailDataError("")
+
+    try {
+      const response = await fetch("/api/fund-raiser/emails", {
+        method: "GET",
+        cache: "no-store",
+      })
+
+      const data = (await response.json().catch(() => null)) as
+        | FundRaiserEmailsResponse
+        | { error?: string }
+        | null
+
+      if (!response.ok || !data || !("currentUser" in data)) {
+        throw new Error((data && "error" in data && data.error) || "Unable to load email workflows right now.")
+      }
+
+      setCurrentFundRaiserUser(data.currentUser)
+      setCampaignsData(Array.isArray(data.campaigns) ? data.campaigns : [])
+      setDonationsData(Array.isArray(data.donations) ? data.donations : [])
+      setDirectoryUsers(Array.isArray(data.users) ? data.users : [])
+      setRules(Array.isArray(data.rules) && data.rules.length > 0 ? data.rules : defaultEmailAutomationController.createDefaultRules())
+      setTemplates(Array.isArray(data.templates) && data.templates.length > 0 ? data.templates : defaultEmailAutomationController.createDefaultTemplates())
+      setActivityLogs(Array.isArray(data.logs) ? data.logs : [])
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to load email workflows right now."
+      setEmailDataError(message)
+      toast({
+        title: "Unable to load email automation",
+        description: message,
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoadingEmailData(false)
+    }
+  }, [])
+
+  const persistWorkflowChange = useCallback(async (payload: Record<string, unknown>) => {
+    const response = await fetch("/api/fund-raiser/emails", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    })
+
+    const data = (await response.json().catch(() => null)) as
+      | Partial<FundRaiserEmailsResponse>
+      | { error?: string }
+      | null
+
+    if (!response.ok) {
+      throw new Error((data && "error" in data && data.error) || "Unable to save workflow changes right now.")
+    }
+
+    if (data && "rules" in data && Array.isArray(data.rules) && data.rules.length > 0) {
+      setRules(data.rules as EmailAutomationRuleSummary[])
+    }
+
+    if (data && "templates" in data && Array.isArray(data.templates) && data.templates.length > 0) {
+      setTemplates(data.templates as EmailTemplateSummary[])
+    }
+
+    return data
+  }, [])
+
+  useEffect(() => {
+    refreshEmailsDashboard()
+  }, [refreshEmailsDashboard])
 
   const dashboard = useMemo(
     () =>
@@ -111,7 +274,7 @@ export default function FundRaiserEmailsPage() {
         segment: selectedSegmentKey,
         campaignId: selectedCampaignId,
       }),
-    [resolvedFundRaiserUser.id, rules, templates, activityLogs, selectedSegmentKey, selectedCampaignId]
+    [emailAutomationController, resolvedFundRaiserUser.id, rules, templates, activityLogs, selectedSegmentKey, selectedCampaignId]
   )
 
   const selectedCampaign =
@@ -139,46 +302,149 @@ export default function FundRaiserEmailsPage() {
       setTemplateSubject(selectedWorkflow.template.subjectTemplate)
       setTemplateBody(selectedWorkflow.template.bodyTemplate)
     }
+    setTemplateSaveState({ type: "idle", message: "" })
+    setWorkflowActionState({ type: "idle", message: "" })
   }, [selectedWorkflow?.template?.ruleKey, selectedWorkflow?.template?.subjectTemplate, selectedWorkflow?.template?.bodyTemplate])
 
   useEffect(() => {
-    setSavedDrafts(emailAutomationController.getSavedDrafts(resolvedFundRaiserUser.id))
-  }, [resolvedFundRaiserUser.id])
+    if (!selectedWorkflow?.template || isCoachingWorkflow) {
+      return
+    }
 
-  const handleToggleRule = (ruleId: string) => {
-    setRules((current) => emailAutomationController.toggleRule(current, ruleId))
+    const hasChanges =
+      templateSubject !== selectedWorkflow.template.subjectTemplate ||
+      templateBody !== selectedWorkflow.template.bodyTemplate
+
+    if (hasChanges) {
+      setTemplateSaveState({
+        type: "dirty",
+        message: "You have unsaved template changes.",
+      })
+      return
+    }
+
+    setTemplateSaveState((current) => {
+      if (current.type === "saving" || current.type === "saved" || current.type === "error") {
+        return current
+      }
+
+      return { type: "idle", message: "" }
+    })
+  }, [
+    selectedWorkflow?.template,
+    templateSubject,
+    templateBody,
+    isCoachingWorkflow,
+  ])
+
+  useEffect(() => {
+    setSavedDrafts(emailAutomationController.getSavedDrafts(resolvedFundRaiserUser.id))
+  }, [emailAutomationController, resolvedFundRaiserUser.id])
+
+  const handleToggleRule = async (ruleId: string) => {
+    const currentRule = rules.find((rule) => rule.id === ruleId)
+    if (!currentRule) return
+
+    const previousRules = rules
+    const nextRules = emailAutomationController.toggleRule(rules, ruleId)
+    const nextIsEnabled = !currentRule.isEnabled
+    setRules(nextRules)
+
+    try {
+      await persistWorkflowChange({
+        action: "toggle_rule",
+        ruleKey: currentRule.key,
+        isEnabled: nextIsEnabled,
+      })
+
+      toast({
+        title: nextIsEnabled ? "Workflow turned on" : "Workflow turned off",
+        description: `${currentRule.label} has been ${nextIsEnabled ? "enabled" : "disabled"}.`,
+      })
+    } catch (error) {
+      setRules(previousRules)
+      toast({
+        title: "Unable to update workflow",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      })
+    }
   }
 
-  const handleSaveTemplate = () => {
-    if (!selectedWorkflow?.template) return
+  const handleSaveTemplate = async () => {
+    if (!selectedWorkflow?.template || !hasTemplateChanges) return
 
-    setTemplates((current) =>
-      emailAutomationController.updateTemplate(current, selectedWorkflow.template!.ruleKey, {
+    setTemplateSaveState({
+      type: "saving",
+      message: "Saving template changes...",
+    })
+
+    try {
+      await persistWorkflowChange({
+        action: "save_template",
+        ruleKey: selectedWorkflow.template.ruleKey,
         subjectTemplate: templateSubject,
         bodyTemplate: templateBody,
       })
-    )
 
-    toast({ title: "Template updated", description: "The email template has been updated for this workflow." })
+      setTemplateSaveState({
+        type: "saved",
+        message: "Changes saved successfully.",
+      })
+      toast({ title: "Template updated", description: "The email template has been saved for this workflow." })
+    } catch (error) {
+      setTemplateSaveState({
+        type: "error",
+        message: "Unable to save template changes.",
+      })
+      toast({
+        title: "Unable to save template",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      })
+    }
   }
 
-  const handleResetTemplate = () => {
+  const handleResetTemplate = async () => {
     if (!selectedWorkflow?.template) return
 
-    const nextTemplates = emailAutomationController.resetTemplate(templates, selectedWorkflow.template.ruleKey)
-    setTemplates(nextTemplates)
+    try {
+      const data = await persistWorkflowChange({
+        action: "reset_template",
+        ruleKey: selectedWorkflow.template.ruleKey,
+      })
 
-    const resetTemplate = nextTemplates.find((item) => item.ruleKey === selectedWorkflow.template?.ruleKey)
-    setTemplateSubject(resetTemplate?.subjectTemplate || "")
-    setTemplateBody(resetTemplate?.bodyTemplate || "")
+      const nextTemplate = Array.isArray(data?.templates)
+        ? (data.templates as EmailTemplateSummary[]).find((item) => item.ruleKey === selectedWorkflow.template?.ruleKey)
+        : undefined
 
-    toast({ title: "Template reset", description: "The workflow template was reset to its default version." })
+      setTemplateSubject(nextTemplate?.subjectTemplate || "")
+      setTemplateBody(nextTemplate?.bodyTemplate || "")
+      setTemplateSaveState({
+        type: "saved",
+        message: "Template reset to default and saved.",
+      })
+
+      toast({ title: "Template reset", description: "The workflow template was reset to its default version." })
+    } catch (error) {
+      setTemplateSaveState({
+        type: "error",
+        message: "Unable to reset the template.",
+      })
+      toast({
+        title: "Unable to reset template",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      })
+    }
   }
 
   const handleQuickTest = async () => {
     if (!selectedWorkflow?.template) return
 
     try {
+      setWorkflowActionState({ type: "idle", message: "" })
+
       const result = await emailAutomationController.sendQuickTestEmail({
         ruleKey: selectedWorkflow.rule.key,
         templateSummary: selectedWorkflow.template,
@@ -188,8 +454,16 @@ export default function FundRaiserEmailsPage() {
       })
 
       setActivityLogs((current) => [result.log, ...current])
+      setWorkflowActionState({
+        type: "success",
+        message: "Quick test sent successfully. Test email sent to the configured SMTP inbox.",
+      })
       toast({ title: "Quick test sent", description: "Test email sent to the configured SMTP inbox." })
     } catch (error) {
+      setWorkflowActionState({
+        type: "error",
+        message: error instanceof Error ? error.message : "Unable to send quick test.",
+      })
       toast({
         title: "Unable to send quick test",
         description: error instanceof Error ? error.message : "Please try again.",
@@ -198,30 +472,37 @@ export default function FundRaiserEmailsPage() {
     }
   }
 
-  const handleAutomaticDelivery = async (deliveryMode: "send" | "queue") => {
+  const handleAutomaticDelivery = async () => {
     if (!selectedWorkflow?.template) return
 
     try {
+      setWorkflowActionState({ type: "idle", message: "" })
+
       const result = await emailAutomationController.deliverAutomaticWorkflowEmail({
         ruleKey: selectedWorkflow.rule.key,
         templateSummary: selectedWorkflow.template,
         fundRaiserUser: resolvedFundRaiserUser,
         campaign: selectedCampaign,
-        deliveryMode,
+        deliveryMode: "send",
         logs: activityLogs,
       })
 
       setActivityLogs((current) => [result.log, ...current])
+      setWorkflowActionState({
+        type: "success",
+        message: `Workflow email sent successfully to ${result.deliveredCount} recipient${result.deliveredCount === 1 ? "" : "s"}.`,
+      })
       toast({
-        title: deliveryMode === "send" ? "Triggered workflow sent" : "Triggered workflow queued",
-        description:
-          deliveryMode === "send"
-            ? `Email sent to ${result.deliveredCount} recipient${result.deliveredCount === 1 ? "" : "s"}.`
-            : "The matched event was queued for this workflow.",
+        title: "Workflow sent",
+        description: `Email sent to ${result.deliveredCount} recipient${result.deliveredCount === 1 ? "" : "s"}.`,
       })
     } catch (error) {
+      setWorkflowActionState({
+        type: "error",
+        message: error instanceof Error ? error.message : "Unable to send workflow.",
+      })
       toast({
-        title: deliveryMode === "send" ? "Unable to send workflow" : "Unable to queue workflow",
+        title: "Unable to send workflow",
         description: error instanceof Error ? error.message : "Please review the selected campaign and try again.",
         variant: "destructive",
       })
@@ -357,15 +638,89 @@ export default function FundRaiserEmailsPage() {
     toast({ title: "Draft deleted", description: "The saved draft was removed." })
   }
 
+
+  const groupedActivityLogs = useMemo(() => groupEmailActivity(dashboard.logs), [dashboard.logs])
+
+  const activityCampaignOptions = useMemo(
+    () =>
+      Array.from(
+        new Map(
+          groupedActivityLogs
+            .filter((log) => log.campaignTitle)
+            .map((log) => [log.campaignId || log.campaignTitle || "unknown", { id: log.campaignId || log.campaignTitle || "unknown", title: log.campaignTitle || "No campaign" }])
+        ).values()
+      ),
+    [groupedActivityLogs]
+  )
+
+  const filteredGroupedActivityLogs = useMemo(() => {
+    const filtered = groupedActivityLogs.filter((log) => {
+      const statusMatches = activityStatusFilter === "all" || log.status === activityStatusFilter
+      const campaignMatches =
+        activityCampaignFilter === "all" || (log.campaignId || log.campaignTitle || "unknown") === activityCampaignFilter
+
+      return statusMatches && campaignMatches
+    })
+
+    filtered.sort((a, b) =>
+      activitySortOrder === "newest"
+        ? new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime()
+        : new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime()
+    )
+
+    return filtered
+  }, [groupedActivityLogs, activityStatusFilter, activityCampaignFilter, activitySortOrder])
+
+  const visibleGroupedActivityLogs = useMemo(
+    () => filteredGroupedActivityLogs.slice(0, visibleActivityGroups),
+    [filteredGroupedActivityLogs, visibleActivityGroups]
+  )
+
+  useEffect(() => {
+    setVisibleActivityGroups(10)
+    setExpandedActivityRows([])
+  }, [activityStatusFilter, activityCampaignFilter, activitySortOrder])
+
+  const toggleActivityRow = (groupId: string) => {
+    setExpandedActivityRows((current) =>
+      current.includes(groupId) ? current.filter((item) => item !== groupId) : [...current, groupId]
+    )
+  }
+
   const automaticActionsDisabled =
-    !selectedWorkflow?.rule.isEnabled || !selectedTrigger?.isReadyNow || !selectedWorkflow?.template
+    isLoadingEmailData || !selectedWorkflow?.rule.isEnabled || !selectedTrigger?.isReadyNow || !selectedWorkflow?.template
+  const hasTemplateChanges =
+    !isCoachingWorkflow &&
+    Boolean(selectedWorkflow?.template) &&
+    (templateSubject !== (selectedWorkflow?.template?.subjectTemplate || "") ||
+      templateBody !== (selectedWorkflow?.template?.bodyTemplate || ""))
   const hasCustomPurpose = manualPurpose !== "custom" || Boolean(customPurposeText.trim())
-  const canGenerateAi = Boolean(selectedCampaign && selectedSegment && hasCustomPurpose)
-  const manualDeliveryDisabled = !generatedDraft || !selectedSegment || selectedSegment.recipientsWithEmailCount <= 0
+  const canGenerateAi = Boolean(selectedCampaign && selectedSegment && hasCustomPurpose && !isLoadingEmailData)
+  const manualDeliveryDisabled =
+    isLoadingEmailData || !generatedDraft || !selectedSegment || selectedSegment.recipientsWithEmailCount <= 0
+
+
 
   return (
     <DashboardLayout role="fund_raiser">
       <div className="space-y-6">
+        {emailDataError ? (
+          <Card className="border-destructive/40">
+            <CardHeader>
+              <CardTitle>Unable to load live email data</CardTitle>
+              <CardDescription>{emailDataError}</CardDescription>
+            </CardHeader>
+          </Card>
+        ) : null}
+
+        {isLoadingEmailData ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>Loading email automation</CardTitle>
+              <CardDescription>Fetching campaigns, donors, and saved workflow templates from the database.</CardDescription>
+            </CardHeader>
+          </Card>
+        ) : null}
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Email automation</h1>
@@ -375,11 +730,11 @@ export default function FundRaiserEmailsPage() {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Button type="button" variant={activeSection === "automatic" ? "default" : "outline"} onClick={() => setActiveSection("automatic")}>
+            <Button type="button" variant={activeSection === "automatic" ? "default" : "outline"} onClick={() => setActiveSection("automatic")} className="cursor-pointer disabled:cursor-not-allowed">
               <MessageSquareHeart className="mr-2 h-4 w-4" />
               Automatic workflows
             </Button>
-            <Button type="button" variant={activeSection === "manual" ? "default" : "outline"} onClick={() => setActiveSection("manual")}>
+            <Button type="button" variant={activeSection === "manual" ? "default" : "outline"} onClick={() => setActiveSection("manual")} className="cursor-pointer disabled:cursor-not-allowed">
               <WandSparkles className="mr-2 h-4 w-4" />
               Manual updates
             </Button>
@@ -396,7 +751,7 @@ export default function FundRaiserEmailsPage() {
         <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-card px-6 py-3">
           <span className="text-base font-semibold text-foreground">Campaign context</span>
           <Select value={selectedCampaignId} onValueChange={setSelectedCampaignId}>
-            <SelectTrigger className="h-9 w-full border-0 bg-transparent px-2 shadow-none md:w-[320px]">
+            <SelectTrigger className="h-9 w-full cursor-pointer border-0 bg-transparent px-2 shadow-none md:w-[320px]">
               <SelectValue placeholder="Select a campaign" />
             </SelectTrigger>
             <SelectContent>
@@ -430,7 +785,7 @@ export default function FundRaiserEmailsPage() {
             key={item.rule.id}
             type="button"
             onClick={() => setSelectedWorkflowKey(item.rule.key)}
-            className={`w-full rounded-lg border p-4 text-left transition ${
+            className={`w-full cursor-pointer rounded-lg border p-4 text-left transition ${
               isSelected ? "border-primary bg-primary/5" : "hover:bg-muted/40"
             }`}
           >
@@ -447,6 +802,7 @@ export default function FundRaiserEmailsPage() {
               </div>
 
               <Switch
+                className="cursor-pointer"
                 checked={item.rule.isEnabled}
                 onCheckedChange={() => handleToggleRule(item.rule.id)}
                 onClick={(event) => event.stopPropagation()}
@@ -462,7 +818,7 @@ export default function FundRaiserEmailsPage() {
     <CardHeader>
       <CardTitle>{selectedWorkflow?.template?.label || "Workflow template"}</CardTitle>
       <CardDescription>
-        Edit the selected workflow template, then test, queue, or send it when needed.
+        Edit the selected workflow template, then test or send it when needed.
       </CardDescription>
     </CardHeader>
     <CardContent className="space-y-4">
@@ -501,6 +857,7 @@ export default function FundRaiserEmailsPage() {
         <label className="text-sm font-medium">Subject template</label>
         <Input value={templateSubject} onChange={(event) => setTemplateSubject(event.target.value)} readOnly={isCoachingWorkflow} />
       </div>
+      
 
       <div className="space-y-2">
         <label className="text-sm font-medium">Body template</label>
@@ -513,40 +870,70 @@ export default function FundRaiserEmailsPage() {
       </div>
 
       <div className="rounded-lg border bg-muted/30 p-3 text-sm text-muted-foreground">
-        Supported placeholders: <code>{"{{campaignTitle}}"}</code>, <code>{"{{raisedAmount}}"}</code>, <code>{"{{targetAmount}}"}</code>, <code>{"{{donorCount}}"}</code>, <code>{"{{milestonePercent}}"}</code>, <code>{"{{fundRaiserName}}"}</code>
+        Supported placeholders: <code>{"{{campaignTitle}}"}</code>, <code>{"{{raisedAmount}}"}</code>, <code>{"{{targetAmount}}"}</code>, <code>{"{{donorCount}}"}</code>, <code>{"{{milestonePercent}}"}</code>, <code>{"{{fundRaiserName}}"}</code>, <code>{"{{recipientLabel}}"}</code>, <code>{"{{campaignUpdateTitle}}"}</code>, <code>{"{{campaignUpdateContent}}"}</code>, <code>{"{{campaignUpdateDate}}"}</code>
       </div>
+
+      {!isCoachingWorkflow && templateSaveState.message ? (
+        <div
+          className={`rounded-lg border p-3 text-sm ${
+            templateSaveState.type === "saved"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              : templateSaveState.type === "dirty"
+              ? "border-amber-200 bg-amber-50 text-amber-700"
+              : templateSaveState.type === "error"
+              ? "border-destructive/30 bg-destructive/5 text-destructive"
+              : "border-muted bg-muted/30 text-muted-foreground"
+          }`}
+        >
+          {templateSaveState.message}
+        </div>
+      ) : null}
+
+      {workflowActionState.message ? (
+        <div
+          className={`rounded-lg border p-3 text-sm ${
+            workflowActionState.type === "success"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              : workflowActionState.type === "error"
+              ? "border-destructive/30 bg-destructive/5 text-destructive"
+              : "border-muted bg-muted/30 text-muted-foreground"
+          }`}
+        >
+          {workflowActionState.message}
+        </div>
+      ) : null}
 
       <div className="flex flex-wrap gap-2">
         {!isCoachingWorkflow ? (
           <>
-            <Button type="button" onClick={handleSaveTemplate}>
+            <Button type="button" onClick={handleSaveTemplate} disabled={!hasTemplateChanges || templateSaveState.type === "saving"} className="cursor-pointer disabled:cursor-not-allowed">
               <Save className="mr-2 h-4 w-4" />
-              Save template
+              {templateSaveState.type === "saving"
+                ? "Saving..."
+                : templateSaveState.type === "saved" && !hasTemplateChanges
+                ? "Saved"
+                : "Save template"}
             </Button>
-            <Button type="button" variant="outline" onClick={handleResetTemplate}>
+            <Button type="button" variant="outline" onClick={handleResetTemplate} className="cursor-pointer disabled:cursor-not-allowed">
               <PencilLine className="mr-2 h-4 w-4" />
               Reset default
             </Button>
           </>
         ) : null}
-        <Button type="button" variant="outline" onClick={handleQuickTest}>
+        <Button type="button" variant="outline" onClick={handleQuickTest} className="cursor-pointer disabled:cursor-not-allowed">
           <Mail className="mr-2 h-4 w-4" />
           Quick test
         </Button>
-        <Button type="button" variant="outline" onClick={() => handleAutomaticDelivery("queue")} disabled={automaticActionsDisabled}>
-          <Clock3 className="mr-2 h-4 w-4" />
-          Queue triggered workflow
-        </Button>
-        <Button type="button" onClick={() => handleAutomaticDelivery("send")} disabled={automaticActionsDisabled}>
+        <Button type="button" onClick={handleAutomaticDelivery} disabled={automaticActionsDisabled} className="cursor-pointer disabled:cursor-not-allowed">
           <Send className="mr-2 h-4 w-4" />
-          Send triggered workflow
+          Send workflow now
         </Button>
       </div>
 
       {automaticActionsDisabled ? (
         <p className="text-sm text-muted-foreground">
           {!selectedWorkflow?.rule.isEnabled
-            ? "Turn this workflow on before queueing or sending it."
+            ? "Turn this workflow on before sending it."
             : selectedTrigger?.statusReason || "This workflow is waiting for its trigger condition."}
         </p>
       ) : null}
@@ -566,7 +953,7 @@ export default function FundRaiserEmailsPage() {
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Donor segment</label>
                   <Select value={selectedSegmentKey} onValueChange={(value) => setSelectedSegmentKey(value as DonorSegmentKey)}>
-                    <SelectTrigger>
+                    <SelectTrigger className="cursor-pointer">
                       <SelectValue placeholder="Select a donor segment" />
                     </SelectTrigger>
                     <SelectContent>
@@ -597,7 +984,7 @@ export default function FundRaiserEmailsPage() {
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Email purpose</label>
                   <Select value={manualPurpose} onValueChange={(value) => setManualPurpose(value as EmailDraftPurpose)}>
-                    <SelectTrigger>
+                    <SelectTrigger className="cursor-pointer">
                       <SelectValue placeholder="Select email purpose" />
                     </SelectTrigger>
                     <SelectContent>
@@ -624,7 +1011,7 @@ export default function FundRaiserEmailsPage() {
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Tone</label>
                   <Select value={manualTone} onValueChange={(value) => setManualTone(value as EmailDraftTone)}>
-                    <SelectTrigger>
+                    <SelectTrigger className="cursor-pointer">
                       <SelectValue placeholder="Select tone" />
                     </SelectTrigger>
                     <SelectContent>
@@ -648,15 +1035,15 @@ export default function FundRaiserEmailsPage() {
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                  <Button type="button" onClick={() => handleGenerateDraft(false)} disabled={isGenerating || !canGenerateAi}>
+                  <Button type="button" onClick={() => handleGenerateDraft(false)} disabled={isGenerating || !canGenerateAi} className="cursor-pointer disabled:cursor-not-allowed">
                     <WandSparkles className="mr-2 h-4 w-4" />
                     {isGenerating ? "Generating..." : "Generate with AI"}
                   </Button>
-                  <Button type="button" variant="outline" onClick={() => handleGenerateDraft(true)} disabled={isGenerating || !generatedDraft || !canGenerateAi}>
+                  <Button type="button" variant="outline" onClick={() => handleGenerateDraft(true)} disabled={isGenerating || !generatedDraft || !canGenerateAi} className="cursor-pointer disabled:cursor-not-allowed">
                     <Sparkles className="mr-2 h-4 w-4" />
                     Regenerate variation
                   </Button>
-                  <Button type="button" variant="outline" onClick={handleSaveDraft} disabled={!generatedDraft}>
+                  <Button type="button" variant="outline" onClick={handleSaveDraft} disabled={!generatedDraft} className="cursor-pointer disabled:cursor-not-allowed">
                     <Save className="mr-2 h-4 w-4" />
                     Save generated content
                   </Button>
@@ -702,7 +1089,7 @@ export default function FundRaiserEmailsPage() {
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                  <Button type="button" onClick={() => handleManualDelivery("send")} disabled={manualDeliveryDisabled}>
+                  <Button type="button" onClick={() => handleManualDelivery("send")} disabled={manualDeliveryDisabled} className="cursor-pointer disabled:cursor-not-allowed">
                     <Send className="mr-2 h-4 w-4" />
                     Send now
                   </Button>
@@ -717,45 +1104,153 @@ export default function FundRaiserEmailsPage() {
             <CardHeader>
               <CardTitle>Email activity</CardTitle>
               <CardDescription>
-                Recent workflow tests, queued emails, and sent emails from both the automatic and manual sections.
+                Recent workflow tests and sent emails from both the automatic and manual sections.
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <Select value={activityStatusFilter} onValueChange={(value) => setActivityStatusFilter(value as "all" | EmailLogSummary["status"])}>
+                    <SelectTrigger className="cursor-pointer">
+                      <SelectValue placeholder="Filter by status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All statuses</SelectItem>
+                      <SelectItem value="sent">Sent</SelectItem>
+                      <SelectItem value="queued">Queued</SelectItem>
+                      <SelectItem value="failed">Failed</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={activityCampaignFilter} onValueChange={setActivityCampaignFilter}>
+                    <SelectTrigger className="cursor-pointer">
+                      <SelectValue placeholder="Filter by campaign" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All campaigns</SelectItem>
+                      {activityCampaignOptions.map((campaignOption) => (
+                        <SelectItem key={campaignOption.id} value={campaignOption.id}>
+                          {campaignOption.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={activitySortOrder} onValueChange={(value) => setActivitySortOrder(value as "newest" | "oldest")}>
+                    <SelectTrigger className="cursor-pointer">
+                      <SelectValue placeholder="Sort order" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="newest">Newest first</SelectItem>
+                      <SelectItem value="oldest">Oldest first</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <p className="text-sm text-muted-foreground">
+                  Showing {Math.min(visibleGroupedActivityLogs.length, filteredGroupedActivityLogs.length)} of {filteredGroupedActivityLogs.length} email activities
+                </p>
+              </div>
+
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Workflow</TableHead>
-                    <TableHead>Recipient</TableHead>
+                    <TableHead>Campaign</TableHead>
+                    <TableHead>Recipients</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Subject</TableHead>
+                    <TableHead>Date sent</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {dashboard.logs.length === 0 ? (
+                  {filteredGroupedActivityLogs.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center text-muted-foreground">
-                        No email activity yet. Run a quick test, queue a workflow, or send a manual update.
+                      <TableCell colSpan={6} className="text-center text-muted-foreground">
+                        No email activity yet. Run a quick test or send a workflow/manual email to populate the activity log.
                       </TableCell>
                     </TableRow>
                   ) : (
-                    dashboard.logs.map((log) => (
-                      <TableRow key={log.id}>
-                        <TableCell>
-                          <div className="space-y-1">
-                            <p className="font-medium">{log.ruleLabel}</p>
-                            <p className="text-xs text-muted-foreground">{log.campaignTitle || "No campaign"}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell>{log.recipientName}</TableCell>
-                        <TableCell>
-                          <Badge variant={log.status === "sent" ? "default" : "secondary"}>{log.statusLabel}</Badge>
-                        </TableCell>
-                        <TableCell className="max-w-[340px] truncate">{log.subject}</TableCell>
-                      </TableRow>
-                    ))
+                    visibleGroupedActivityLogs.flatMap((group) => {
+                      const isExpanded = expandedActivityRows.includes(group.id)
+
+                      return [
+                        <TableRow key={group.id}>
+                          <TableCell>
+                            <div className="space-y-1">
+                              <p className="font-medium">{group.ruleLabel}</p>
+                              <p className="text-xs text-muted-foreground">{group.ruleKey}</p>
+                            </div>
+                          </TableCell>
+                          <TableCell>{group.campaignTitle || "No campaign"}</TableCell>
+                          <TableCell>
+                            <div className="space-y-2">
+                              <p className="font-medium">{group.recipientCount} recipient{group.recipientCount === 1 ? "" : "s"}</p>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-auto px-0 py-0 text-sm cursor-pointer"
+                                onClick={() => toggleActivityRow(group.id)}
+                              >
+                                {isExpanded ? (
+                                  <>
+                                    <ChevronDown className="mr-1 h-4 w-4" />
+                                    Hide recipients
+                                  </>
+                                ) : (
+                                  <>
+                                    <ChevronRight className="mr-1 h-4 w-4" />
+                                    Show recipients
+                                  </>
+                                )}
+                              </Button>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={group.status === "sent" ? "default" : group.status === "failed" ? "destructive" : "secondary"}>
+                              {group.statusLabel}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="max-w-[280px] truncate">{group.subject}</TableCell>
+                          <TableCell>{formatDateTime(group.sentAt)}</TableCell>
+                        </TableRow>,
+                        ...(isExpanded
+                          ? [
+                              <TableRow key={`${group.id}-expanded`}>
+                                <TableCell colSpan={6} className="bg-muted/20">
+                                  <div className="space-y-2 py-1">
+                                    <p className="text-sm font-medium">Recipients</p>
+                                    <div className="space-y-2">
+                                      {group.recipients.map((recipient, index) => (
+                                        <div key={`${group.id}-${recipient.email || recipient.name}-${index}`} className="rounded-md border bg-background px-3 py-2 text-sm">
+                                          <p className="text-muted-foreground">{recipient.name || recipient.email || "Unnamed recipient"}</p>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </TableCell>
+                              </TableRow>,
+                            ]
+                          : []),
+                      ]
+                    })
                   )}
                 </TableBody>
               </Table>
+
+              {filteredGroupedActivityLogs.length > visibleGroupedActivityLogs.length ? (
+                <div className="flex justify-center">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="cursor-pointer"
+                    onClick={() => setVisibleActivityGroups((current) => current + 10)}
+                  >
+                    Show 10 more
+                  </Button>
+                </div>
+              ) : null}
             </CardContent>
           </Card>
 
@@ -783,10 +1278,10 @@ export default function FundRaiserEmailsPage() {
                         </div>
                       </div>
                       <div className="flex shrink-0 gap-2">
-                        <Button type="button" variant="outline" size="sm" onClick={() => handleUseSavedDraft(draft)}>
+                        <Button type="button" variant="outline" size="sm" onClick={() => handleUseSavedDraft(draft)} className="cursor-pointer disabled:cursor-not-allowed">
                           Use draft
                         </Button>
-                        <Button type="button" variant="outline" size="sm" onClick={() => handleDeleteDraft(draft.id)}>
+                        <Button type="button" variant="outline" size="sm" onClick={() => handleDeleteDraft(draft.id)} className="cursor-pointer disabled:cursor-not-allowed">
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>

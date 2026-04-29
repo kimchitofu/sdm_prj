@@ -1,4 +1,4 @@
-export type UserRole = 'donee' | 'fund_raiser' | 'admin' | 'platform_manager' | 'campaign_admin' | string
+export type UserRole = 'donee' | 'fund_raiser' | 'admin' | 'platform_manager' | 'campaign_admin' | 'donor' | string
 
 export type UserProfile = {
   firstName?: string
@@ -14,6 +14,8 @@ export function getRedirectForRole(role?: UserRole) {
       return '/dashboard/fund-raiser'
     case 'donee':
       return '/dashboard/donee'
+    case 'donor':
+      return '/dashboard/donor'
     case 'admin':
       return '/dashboard/admin/users'
     case 'campaign_admin':

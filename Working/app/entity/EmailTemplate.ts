@@ -76,7 +76,7 @@ export function createDefaultEmailTemplates(): EmailTemplateSummary[] {
       description: "Automatic campaign update email template for supporter updates.",
       subjectTemplate: "Campaign update: {{campaignTitle}}",
       bodyTemplate:
-        "Hi there,\n\nWe wanted to share a quick update on {{campaignTitle}}. The campaign has currently raised {{raisedAmount}} out of {{targetAmount}}, and every show of support continues to move us closer to the goal.\n\nThank you for staying involved and for helping us keep this momentum going.",
+        "Hello,\n\nThank you for supporting {{campaignTitle}}.\n\nWe’ve just shared a new campaign update.\n\n{{campaignUpdateTitle}}\n\n{{campaignUpdateContent}}\n\nSo far, the campaign has raised {{raisedAmount}} out of {{targetAmount}}, with support from {{donorCount}} supporters.\n\nWe truly appreciate your support and will continue to keep you updated.\n\nWarm regards,\n{{fundRaiserName}}",
     },
     {
       id: "template-thank-you",

@@ -90,6 +90,7 @@ export default function SignInPage() {
       donee: { email: 'donee@example.com' },
       fund_raiser: { email: 'fundraiser@example.com' },
       admin: { email: 'admin@fundbridge.com' },
+      donor: { email: 'donor@example.com' },
     }
 
     const account = demoAccounts[role]
@@ -264,6 +265,14 @@ export default function SignInPage() {
                     onClick={() => handleDemoLogin('admin')}
                   >
                     Admin Demo
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDemoLogin('donor')}
+                  >
+                    Donor Demo
                   </Button>
                 </div>
               </div>

@@ -6,7 +6,6 @@ import {
   Users,
   TrendingUp,
   Shield,
-  Search,
   DollarSign,
   BarChart3,
   CheckCircle2,
@@ -28,6 +27,8 @@ import {
 } from '@/components/ui/accordion'
 import { CampaignCard } from '@/components/campaigns/campaign-card'
 import { categories, getFeaturedCampaigns, formatCurrency, formatNumber } from '@/lib/mock-data'
+import { HeroActions } from '@/components/home/hero-actions'
+import { CtaActions } from '@/components/home/cta-actions'
 
 const featuredCampaigns = getFeaturedCampaigns()
 
@@ -151,20 +152,7 @@ export default function LandingPage() {
                 transparent, and secure.
               </p>
               
-              <div className="flex flex-col justify-center gap-4 sm:flex-row">
-                <Button size="lg" asChild>
-                  <Link href="/auth/register">
-                    Start Fundraising
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Link>
-                </Button>
-                <Button size="lg" variant="outline" asChild>
-                  <Link href="/browse">
-                    <Search className="mr-2 h-4 w-4" />
-                    Browse Campaigns
-                  </Link>
-                </Button>
-              </div>
+              <HeroActions />
             </div>
 
             {/* Hero Visual - Featured Campaign Cards Preview */}
@@ -506,23 +494,7 @@ export default function LandingPage() {
                   Whether you want to start a campaign or support a cause, 
                   FundBridge makes it easy to create real impact in your community.
                 </p>
-                <div className="flex flex-col justify-center gap-4 sm:flex-row">
-                  <Button size="lg" variant="secondary" asChild>
-                    <Link href="/auth/register?role=fund_raiser">
-                      Start a Campaign
-                    </Link>
-                  </Button>
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className="border-primary-foreground/20 bg-transparent text-primary-foreground hover:bg-primary-foreground/10"
-                    asChild
-                  >
-                    <Link href="/browse">
-                      Explore Campaigns
-                    </Link>
-                  </Button>
-                </div>
+                <CtaActions />
               </div>
             </div>
           </div>

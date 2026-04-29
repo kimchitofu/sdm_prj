@@ -48,6 +48,8 @@ function getDashboardHref(role: string) {
     case 'campaign_admin': return '/dashboard/admin/campaign-dashboard'
     case 'fund_raiser': return '/dashboard/fund-raiser'
     case 'platform_manager': return '/dashboard/platform'
+    case 'donor': return '/dashboard/donor'
+    case 'donee': return '/dashboard/donee'
     default: return '/dashboard/donee'
   }
 }

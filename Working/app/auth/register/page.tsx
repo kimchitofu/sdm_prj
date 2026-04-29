@@ -16,11 +16,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 
-type UserRole = 'donee' | 'fund_raiser'
+type UserRole = 'donor' | 'fund_raiser'
 
 const roleOptions = [
   {
-    id: 'donee' as UserRole,
+    id: 'donor' as UserRole,
     title: 'Donor',
     subtitle: 'Support causes you care about',
     icon: Heart,
@@ -116,7 +116,7 @@ function RegisterForm() {
           password: formData.password,
           firstName: formData.firstName,
           lastName: formData.lastName,
-          role: selectedRole ?? 'donee',
+          role: selectedRole ?? 'donor',
         }),
       })
 

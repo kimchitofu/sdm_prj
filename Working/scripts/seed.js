@@ -99,6 +99,19 @@ async function main() {
     },
   })
 
+  const donor1 = await prisma.user.create({
+    data: {
+      email: 'donor@example.com',
+      password: demoPassword,
+      firstName: 'David',
+      lastName: 'Chen',
+      role: 'donor',
+      isVerified: true,
+      status: 'active',
+      location: 'Singapore',
+    },
+  })
+
   const donee1 = await prisma.user.create({
     data: {
       email: 'donee@example.com',
@@ -376,6 +389,7 @@ async function main() {
   console.log('  platform@fundbridge.com   -> platform_manager (password: Demo1234)')
   console.log('  fundraiser@example.com    -> fund_raiser (password: Demo1234)')
   console.log('  fundraiser2@example.com   -> fund_raiser (password: Demo1234)')
+  console.log('  donor@example.com         -> donor (password: Demo1234)')
   console.log('  donee@example.com         -> donee (password: Demo1234)')
   console.log('  donee2@example.com        -> donee (password: Demo1234)')
 }
