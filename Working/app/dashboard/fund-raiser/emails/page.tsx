@@ -6,7 +6,6 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
-  Clock3,
   Mail,
   MessageSquareHeart,
   PencilLine,
@@ -180,6 +179,14 @@ export default function FundRaiserEmailsPage() {
     type: "idle",
     message: "",
   })
+
+  const [workflowActionState, setWorkflowActionState] = useState<{
+    type: "idle" | "success" | "error"
+    message: string
+  }>({
+    type: "idle",
+    message: "",
+  })
   const [visibleActivityCount, setVisibleActivityCount] = useState(10)
 
   const emailAutomationController = useMemo(
@@ -296,6 +303,7 @@ export default function FundRaiserEmailsPage() {
       setTemplateBody(selectedWorkflow.template.bodyTemplate)
     }
     setTemplateSaveState({ type: "idle", message: "" })
+    setWorkflowActionState({ type: "idle", message: "" })
   }, [selectedWorkflow?.template?.ruleKey, selectedWorkflow?.template?.subjectTemplate, selectedWorkflow?.template?.bodyTemplate])
 
   useEffect(() => {
@@ -435,6 +443,8 @@ export default function FundRaiserEmailsPage() {
     if (!selectedWorkflow?.template) return
 
     try {
+      setWorkflowActionState({ type: "idle", message: "" })
+
       const result = await emailAutomationController.sendQuickTestEmail({
         ruleKey: selectedWorkflow.rule.key,
         templateSummary: selectedWorkflow.template,
@@ -444,8 +454,16 @@ export default function FundRaiserEmailsPage() {
       })
 
       setActivityLogs((current) => [result.log, ...current])
+      setWorkflowActionState({
+        type: "success",
+        message: "Quick test sent successfully. Test email sent to the configured SMTP inbox.",
+      })
       toast({ title: "Quick test sent", description: "Test email sent to the configured SMTP inbox." })
     } catch (error) {
+      setWorkflowActionState({
+        type: "error",
+        message: error instanceof Error ? error.message : "Unable to send quick test.",
+      })
       toast({
         title: "Unable to send quick test",
         description: error instanceof Error ? error.message : "Please try again.",
@@ -454,30 +472,37 @@ export default function FundRaiserEmailsPage() {
     }
   }
 
-  const handleAutomaticDelivery = async (deliveryMode: "send" | "queue") => {
+  const handleAutomaticDelivery = async () => {
     if (!selectedWorkflow?.template) return
 
     try {
+      setWorkflowActionState({ type: "idle", message: "" })
+
       const result = await emailAutomationController.deliverAutomaticWorkflowEmail({
         ruleKey: selectedWorkflow.rule.key,
         templateSummary: selectedWorkflow.template,
         fundRaiserUser: resolvedFundRaiserUser,
         campaign: selectedCampaign,
-        deliveryMode,
+        deliveryMode: "send",
         logs: activityLogs,
       })
 
       setActivityLogs((current) => [result.log, ...current])
+      setWorkflowActionState({
+        type: "success",
+        message: `Workflow email sent successfully to ${result.deliveredCount} recipient${result.deliveredCount === 1 ? "" : "s"}.`,
+      })
       toast({
-        title: deliveryMode === "send" ? "Triggered workflow sent" : "Triggered workflow queued",
-        description:
-          deliveryMode === "send"
-            ? `Email sent to ${result.deliveredCount} recipient${result.deliveredCount === 1 ? "" : "s"}.`
-            : "The matched event was queued for this workflow.",
+        title: "Workflow sent",
+        description: `Email sent to ${result.deliveredCount} recipient${result.deliveredCount === 1 ? "" : "s"}.`,
       })
     } catch (error) {
+      setWorkflowActionState({
+        type: "error",
+        message: error instanceof Error ? error.message : "Unable to send workflow.",
+      })
       toast({
-        title: deliveryMode === "send" ? "Unable to send workflow" : "Unable to queue workflow",
+        title: "Unable to send workflow",
         description: error instanceof Error ? error.message : "Please review the selected campaign and try again.",
         variant: "destructive",
       })
@@ -663,28 +688,7 @@ export default function FundRaiserEmailsPage() {
   }
 
   const automaticActionsDisabled =
-    isLoadingEmailData ||
-    !selectedWorkflow?.rule.isEnabled ||
-    !selectedTrigger?.isReadyNow ||
-    !selectedWorkflow?.template ||
-    !automaticAudience ||
-    automaticAudience.recipientsWithEmailCount <= 0
-
-  const noAutomaticRecipients =
-    Boolean(selectedWorkflow?.rule.isEnabled) &&
-    Boolean(selectedTrigger?.isReadyNow) &&
-    Boolean(selectedWorkflow?.template) &&
-    Boolean(automaticAudience) &&
-    (automaticAudience?.recipientCount ?? 0) <= 0
-
-  const noAutomaticRecipientEmails =
-    Boolean(selectedWorkflow?.rule.isEnabled) &&
-    Boolean(selectedTrigger?.isReadyNow) &&
-    Boolean(selectedWorkflow?.template) &&
-    Boolean(automaticAudience) &&
-    (automaticAudience?.recipientCount ?? 0) > 0 &&
-    (automaticAudience?.recipientsWithEmailCount ?? 0) <= 0
-
+    isLoadingEmailData || !selectedWorkflow?.rule.isEnabled || !selectedTrigger?.isReadyNow || !selectedWorkflow?.template
   const hasTemplateChanges =
     !isCoachingWorkflow &&
     Boolean(selectedWorkflow?.template) &&
@@ -814,7 +818,7 @@ export default function FundRaiserEmailsPage() {
     <CardHeader>
       <CardTitle>{selectedWorkflow?.template?.label || "Workflow template"}</CardTitle>
       <CardDescription>
-        Edit the selected workflow template, then test, queue, or send it when needed.
+        Edit the selected workflow template, then test or send it when needed.
       </CardDescription>
     </CardHeader>
     <CardContent className="space-y-4">
@@ -842,18 +846,6 @@ export default function FundRaiserEmailsPage() {
           <p className="text-2xl font-semibold">{automaticAudience?.recipientsWithEmailCount ?? 0}</p>
         </div>
       </div>
-
-      {noAutomaticRecipients ? (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
-          No recipients currently match this workflow, so nothing can be sent right now.
-        </div>
-      ) : null}
-
-      {noAutomaticRecipientEmails ? (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
-          No valid recipient email addresses are available for this workflow.
-        </div>
-      ) : null}
 
       {isCoachingWorkflow ? (
         <div className="rounded-lg border bg-muted/30 p-3 text-sm text-muted-foreground">
@@ -897,6 +889,20 @@ export default function FundRaiserEmailsPage() {
         </div>
       ) : null}
 
+      {workflowActionState.message ? (
+        <div
+          className={`rounded-lg border p-3 text-sm ${
+            workflowActionState.type === "success"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              : workflowActionState.type === "error"
+              ? "border-destructive/30 bg-destructive/5 text-destructive"
+              : "border-muted bg-muted/30 text-muted-foreground"
+          }`}
+        >
+          {workflowActionState.message}
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap gap-2">
         {!isCoachingWorkflow ? (
           <>
@@ -918,24 +924,16 @@ export default function FundRaiserEmailsPage() {
           <Mail className="mr-2 h-4 w-4" />
           Quick test
         </Button>
-        <Button type="button" variant="outline" onClick={() => handleAutomaticDelivery("queue")} disabled={automaticActionsDisabled} className="cursor-pointer disabled:cursor-not-allowed">
-          <Clock3 className="mr-2 h-4 w-4" />
-          Queue triggered workflow
-        </Button>
-        <Button type="button" onClick={() => handleAutomaticDelivery("send")} disabled={automaticActionsDisabled} className="cursor-pointer disabled:cursor-not-allowed">
+        <Button type="button" onClick={handleAutomaticDelivery} disabled={automaticActionsDisabled} className="cursor-pointer disabled:cursor-not-allowed">
           <Send className="mr-2 h-4 w-4" />
-          Send triggered workflow
+          Send workflow now
         </Button>
       </div>
 
       {automaticActionsDisabled ? (
         <p className="text-sm text-muted-foreground">
           {!selectedWorkflow?.rule.isEnabled
-            ? "Turn this workflow on before queueing or sending it."
-            : noAutomaticRecipients
-            ? "No recipients currently match this workflow."
-            : noAutomaticRecipientEmails
-            ? "No valid recipient email addresses are available for this workflow."
+            ? "Turn this workflow on before sending it."
             : selectedTrigger?.statusReason || "This workflow is waiting for its trigger condition."}
         </p>
       ) : null}
@@ -1226,10 +1224,7 @@ export default function FundRaiserEmailsPage() {
                                     <div className="space-y-2">
                                       {group.recipients.map((recipient, index) => (
                                         <div key={`${group.id}-${recipient.email || recipient.name}-${index}`} className="rounded-md border bg-background px-3 py-2 text-sm">
-                                          <p className="font-medium">{recipient.name || recipient.email || "Unnamed recipient"}</p>
-                                          {recipient.email ? (
-                                            <p className="text-muted-foreground">{recipient.email}</p>
-                                          ) : null}
+                                          <p className="text-muted-foreground">{recipient.name || recipient.email || "Unnamed recipient"}</p>
                                         </div>
                                       ))}
                                     </div>

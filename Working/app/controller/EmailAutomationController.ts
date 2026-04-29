@@ -984,7 +984,7 @@ export class EmailAutomationController {
       throw new Error("There are no recipient email addresses available for this action.")
     }
 
-    const response = await fetch("/api/emails/send", {
+    const response = await fetch("/api/fund-raiser/email-send", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
