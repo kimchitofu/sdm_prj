@@ -1,44 +1,52 @@
-import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getSession } from '@/lib/auth'
+import { NextResponse } from "next/server"
+import { prisma } from "@/lib/prisma"
+import { getSession } from "@/lib/auth"
 
 export async function GET() {
-  const session = await getSession()
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  try {
+    const session = await getSession()
 
-  const now = new Date()
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
 
-  const [donations, favourites, thisMonthDonations, activeCampaigns] = await Promise.all([
-    prisma.donation.findMany({
-      where: { donorId: session.id },
-      orderBy: { createdAt: 'desc' },
+    const donee = await prisma.user.findUnique({
+      where: { id: session.id },
       select: {
         id: true,
-        amount: true,
-        createdAt: true,
-        campaign: { select: { id: true, title: true } },
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
       },
-    }),
-    prisma.favourite.findMany({
-      where: { userId: session.id },
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        createdAt: true,
-        campaign: { select: { id: true, title: true } },
+    })
+
+    if (!donee || donee.role !== "donee") {
+      return NextResponse.json(
+        { error: "Donee account not found" },
+        { status: 404 }
+      )
+    }
+
+    const fullName = `${donee.firstName} ${donee.lastName}`.trim()
+    const now = new Date()
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+
+    /**
+     * Current schema appears to link campaigns to beneficiaries by text fields,
+     * not by a real doneeId / beneficiaryId.
+     *
+     * So we match campaigns using beneficiaryName.
+     */
+    let linkedCampaigns = await prisma.campaign.findMany({
+      where: {
+        OR: [
+          { beneficiaryName: { contains: fullName } },
+          { beneficiaryName: { contains: donee.firstName } },
+          { beneficiaryName: { contains: donee.lastName } },
+        ],
       },
-    }),
-    prisma.donation.aggregate({
-      where: { donorId: session.id, createdAt: { gte: startOfMonth } },
-      _sum: { amount: true },
-    }),
-    prisma.campaign.findMany({
-      where: { status: 'active' },
-      orderBy: { createdAt: 'desc' },
-      take: 4,
+      orderBy: { createdAt: "desc" },
       select: {
         id: true,
         title: true,
@@ -56,61 +64,281 @@ export async function GET() {
         endDate: true,
         location: true,
         createdAt: true,
-        organiser: { select: { firstName: true, lastName: true } },
+        beneficiaryName: true,
+        beneficiaryDescription: true,
+        organiser: {
+          select: {
+            firstName: true,
+            lastName: true,
+          },
+        },
       },
-    }),
-  ])
+    })
 
-  const totalDonated = donations.reduce((sum, d) => sum + d.amount, 0)
-  const campaignsSupported = new Set(donations.map(d => d.campaign.id)).size
+    /**
+     * Demo fallback:
+     * If no campaigns are linked by beneficiaryName, use active campaigns
+     * so the Donee dashboard still displays useful data for demo/testing.
+     */
+    if (linkedCampaigns.length === 0) {
+      linkedCampaigns = await prisma.campaign.findMany({
+        where: { status: "active" },
+        orderBy: { createdAt: "desc" },
+        take: 4,
+        select: {
+          id: true,
+          title: true,
+          summary: true,
+          category: true,
+          serviceType: true,
+          status: true,
+          targetAmount: true,
+          raisedAmount: true,
+          donorCount: true,
+          views: true,
+          favouriteCount: true,
+          coverImage: true,
+          startDate: true,
+          endDate: true,
+          location: true,
+          createdAt: true,
+          beneficiaryName: true,
+          beneficiaryDescription: true,
+          organiser: {
+            select: {
+              firstName: true,
+              lastName: true,
+            },
+          },
+        },
+      })
+    }
 
-  // Merge donations + favourites into recent activity, sorted by date
-  const donationActivity = donations.slice(0, 10).map(d => ({
-    type: 'donation' as const,
-    campaignId: d.campaign.id,
-    campaign: d.campaign.title,
-    amount: d.amount,
-    createdAt: d.createdAt.toISOString(),
-  }))
+    const linkedCampaignIds = linkedCampaigns.map((campaign) => campaign.id)
 
-  const favouriteActivity = favourites.slice(0, 10).map(f => ({
-    type: 'favourite' as const,
-    campaignId: f.campaign.id,
-    campaign: f.campaign.title,
-    amount: null,
-    createdAt: f.createdAt.toISOString(),
-  }))
+    const [receivedDonations, thisMonthReceived, donorMessages] =
+      await Promise.all([
+        prisma.donation.findMany({
+          where: {
+            campaignId: {
+              in: linkedCampaignIds,
+            },
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+          select: {
+            id: true,
+            amount: true,
+            status: true,
+            donorName: true,
+            donorEmail: true,
+            isAnonymous: true,
+            message: true,
+            createdAt: true,
+            campaign: {
+              select: {
+                id: true,
+                title: true,
+              },
+            },
+          },
+        }),
 
-  const recentActivity = [...donationActivity, ...favouriteActivity]
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, 5)
+        prisma.donation.aggregate({
+          where: {
+            campaignId: {
+              in: linkedCampaignIds,
+            },
+            createdAt: {
+              gte: startOfMonth,
+            },
+            status: "completed",
+          },
+          _sum: {
+            amount: true,
+          },
+        }),
 
-  return NextResponse.json({
-    stats: {
-      totalDonated: Math.round(totalDonated * 100) / 100,
-      activeFavourites: favourites.length,
-      campaignsSupported,
-      thisMonth: Math.round((thisMonthDonations._sum.amount ?? 0) * 100) / 100,
-    },
-    recentActivity,
-    recommendedCampaigns: activeCampaigns.map(c => ({
-      id: c.id,
-      title: c.title,
-      summary: c.summary,
-      category: c.category,
-      serviceType: c.serviceType,
-      status: c.status,
-      targetAmount: c.targetAmount,
-      raisedAmount: c.raisedAmount,
-      donorCount: c.donorCount,
-      views: c.views,
-      favouriteCount: c.favouriteCount,
-      coverImage: c.coverImage,
-      startDate: c.startDate,
-      endDate: c.endDate,
-      location: c.location,
-      createdAt: c.createdAt.toISOString(),
-      organiser: { name: `${c.organiser.firstName} ${c.organiser.lastName}` },
-    })),
-  })
+        prisma.donation.findMany({
+          where: {
+            campaignId: {
+              in: linkedCampaignIds,
+            },
+            message: {
+              not: null,
+            },
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+          select: {
+            id: true,
+            amount: true,
+            donorName: true,
+            isAnonymous: true,
+            message: true,
+            createdAt: true,
+            campaign: {
+              select: {
+                id: true,
+                title: true,
+              },
+            },
+          },
+        }),
+      ])
+
+    const totalReceived = receivedDonations.reduce(
+      (sum, donation) => sum + donation.amount,
+      0
+    )
+
+    const completedDonations = receivedDonations.filter(
+      (donation) => donation.status === "completed"
+    )
+
+    const supporterCount = new Set(
+      completedDonations.map((donation) =>
+        donation.isAnonymous
+          ? `anonymous-${donation.id}`
+          : donation.donorEmail || donation.donorName || donation.id
+      )
+    ).size
+
+    const milestoneAlerts = linkedCampaigns
+      .map((campaign) => {
+        const progress =
+          campaign.targetAmount > 0
+            ? Math.round((campaign.raisedAmount / campaign.targetAmount) * 100)
+            : 0
+
+        const reachedMilestone =
+          progress >= 100
+            ? 100
+            : progress >= 75
+              ? 75
+              : progress >= 50
+                ? 50
+                : progress >= 25
+                  ? 25
+                  : null
+
+        if (!reachedMilestone) return null
+
+        return {
+          campaignId: campaign.id,
+          campaign: campaign.title,
+          progress,
+          milestone: reachedMilestone,
+          createdAt: campaign.createdAt.toISOString(),
+        }
+      })
+      .filter(Boolean)
+
+    const donationActivity = receivedDonations.slice(0, 10).map((donation) => ({
+      type: "donation" as const,
+      campaignId: donation.campaign.id,
+      campaign: donation.campaign.title,
+      amount: donation.amount,
+      createdAt: donation.createdAt.toISOString(),
+    }))
+
+    const messageActivity = donorMessages.slice(0, 10).map((message) => ({
+      type: "message" as const,
+      campaignId: message.campaign.id,
+      campaign: message.campaign.title,
+      amount: message.amount,
+      createdAt: message.createdAt.toISOString(),
+    }))
+
+    const milestoneActivity = milestoneAlerts.map((milestone) => ({
+      type: "milestone" as const,
+      campaignId: milestone!.campaignId,
+      campaign: milestone!.campaign,
+      amount: null,
+      createdAt: milestone!.createdAt,
+    }))
+
+    const recentActivity = [
+      ...donationActivity,
+      ...messageActivity,
+      ...milestoneActivity,
+    ]
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )
+      .slice(0, 5)
+
+    return NextResponse.json({
+      stats: {
+        totalReceived: Math.round(totalReceived * 100) / 100,
+        linkedActivities: linkedCampaigns.length,
+        supporterCount,
+        thisMonthReceived:
+          Math.round((thisMonthReceived._sum.amount ?? 0) * 100) / 100,
+        donorMessages: donorMessages.length,
+        milestoneAlerts: milestoneAlerts.length,
+
+        /**
+         * Keep old field names too, so your current frontend will not break
+         * if it still reads the older donor-style names.
+         */
+        totalDonated: Math.round(totalReceived * 100) / 100,
+        campaignsSupported: linkedCampaigns.length,
+        thisMonth:
+          Math.round((thisMonthReceived._sum.amount ?? 0) * 100) / 100,
+        activeFavourites: 0,
+      },
+
+      recentActivity,
+
+      linkedCampaigns: linkedCampaigns.map((campaign) => ({
+        id: campaign.id,
+        title: campaign.title,
+        summary: campaign.summary,
+        category: campaign.category,
+        serviceType: campaign.serviceType,
+        status: campaign.status,
+        targetAmount: campaign.targetAmount,
+        raisedAmount: campaign.raisedAmount,
+        donorCount: campaign.donorCount,
+        views: campaign.views,
+        favouriteCount: campaign.favouriteCount,
+        coverImage: campaign.coverImage,
+        startDate: campaign.startDate,
+        endDate: campaign.endDate,
+        location: campaign.location,
+        createdAt: campaign.createdAt.toISOString(),
+        beneficiaryName: campaign.beneficiaryName,
+        beneficiaryDescription: campaign.beneficiaryDescription,
+        organiser: {
+          name: `${campaign.organiser.firstName} ${campaign.organiser.lastName}`,
+        },
+      })),
+
+      donorMessages: donorMessages.map((message) => ({
+        id: message.id,
+        campaignId: message.campaign.id,
+        campaign: message.campaign.title,
+        donorName: message.isAnonymous
+          ? "Anonymous"
+          : message.donorName || "Unknown Donor",
+        isAnonymous: message.isAnonymous,
+        amount: message.amount,
+        message: message.message,
+        createdAt: message.createdAt.toISOString(),
+      })),
+
+      milestoneAlerts,
+    })
+  } catch (error) {
+    console.error("Failed to load Donee dashboard:", error)
+
+    return NextResponse.json(
+      { error: "Failed to load Donee dashboard" },
+      { status: 500 }
+    )
+  }
 }
