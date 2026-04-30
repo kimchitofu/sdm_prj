@@ -53,6 +53,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -66,6 +67,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { Textarea } from "@/components/ui/textarea"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { DashboardLayout } from "@/components/layout/dashboard-sidebar"
@@ -119,6 +121,10 @@ export default function AdminUsersPage() {
   const [showUserDetail, setShowUserDetail] = useState(false)
   const [actionDialogOpen, setActionDialogOpen] = useState(false)
   const [actionType, setActionType] = useState<string>("")
+
+  const [freezeDialogOpen, setFreezeDialogOpen] = useState(false)
+  const [freezeReason, setFreezeReason] = useState("")
+  const [freezeReasonError, setFreezeReasonError] = useState("")
 
   const [userAuditLogs, setUserAuditLogs] = useState<AuditLogEntry[]>([])
   const [isLoadingLogs, setIsLoadingLogs] = useState(false)
@@ -222,33 +228,54 @@ export default function AdminUsersPage() {
   const handleAction = (user: DbUser, action: string) => {
     setSelectedUser(user)
     setActionType(action)
-    setActionDialogOpen(true)
+    if (action === 'freeze') {
+      setFreezeReason("")
+      setFreezeReasonError("")
+      setFreezeDialogOpen(true)
+    } else {
+      setActionDialogOpen(true)
+    }
   }
 
-  const confirmAction = async () => {
-    if (!selectedUser || !actionType) return
-    setActionDialogOpen(false)
-
+  const performAction = async (action: string, user: DbUser, reason?: string) => {
     try {
-      const res = await fetch(`/api/admin/users/${selectedUser.id}`, {
+      const res = await fetch(`/api/admin/users/${user.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: actionType }),
+        body: JSON.stringify({ action, reason }),
       })
 
       if (res.ok) {
         const { status: newStatus } = await res.json()
         setAllUsers((prev) =>
-          prev.map((u) => (u.id === selectedUser.id ? { ...u, status: newStatus } : u))
+          prev.map((u) => (u.id === user.id ? { ...u, status: newStatus } : u))
         )
-        if (actionType === 'freeze' || actionType === 'suspend') {
-          setFlaggedUserIds((prev) => new Set([...prev, selectedUser.id]))
+        if (action === 'freeze' || action === 'suspend') {
+          setFlaggedUserIds((prev) => new Set([...prev, user.id]))
         }
       }
     } catch {}
+  }
 
+  const confirmAction = async () => {
+    if (!selectedUser || !actionType) return
+    setActionDialogOpen(false)
+    await performAction(actionType, selectedUser)
     setSelectedUser(null)
     setActionType("")
+  }
+
+  const confirmFreeze = async () => {
+    if (!selectedUser) return
+    if (!freezeReason.trim()) {
+      setFreezeReasonError("Please enter a reason for freezing this account.")
+      return
+    }
+    setFreezeDialogOpen(false)
+    await performAction('freeze', selectedUser, freezeReason.trim())
+    setSelectedUser(null)
+    setActionType("")
+    setFreezeReason("")
   }
 
   const getActionDialogContent = () => {
@@ -551,7 +578,7 @@ export default function AdminUsersPage() {
                 <div className="flex gap-2 flex-wrap">
                   {selectedUser.status === 'active' ? (
                     <>
-                      <Button variant="outline" size="sm" onClick={() => { setShowUserDetail(false); handleAction(selectedUser, 'freeze') }}>
+                      <Button variant="outline" size="sm" onClick={() => { setShowUserDetail(false); setTimeout(() => handleAction(selectedUser, 'freeze'), 100) }}>
                         <Lock className="h-4 w-4 mr-2" />
                         Freeze
                       </Button>
@@ -609,6 +636,51 @@ export default function AdminUsersPage() {
               </TabsContent>
             </Tabs>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Freeze Account Dialog — requires reason */}
+      <Dialog open={freezeDialogOpen} onOpenChange={setFreezeDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Lock className="h-5 w-5 text-destructive" />
+              Freeze Account
+            </DialogTitle>
+            <DialogDescription>
+              Freezing <strong>{selectedUser?.displayName}</strong>&apos;s account will prevent them from accessing the platform. An email will be sent to <strong>{selectedUser?.email}</strong> with the reason and appeal instructions.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <label className="text-sm font-medium">
+              Reason for Freezing <span className="text-destructive">*</span>
+            </label>
+            <Textarea
+              placeholder="Describe why this account is being frozen (e.g. suspicious activity, policy violation)..."
+              value={freezeReason}
+              onChange={(e) => {
+                setFreezeReason(e.target.value)
+                if (e.target.value.trim()) setFreezeReasonError("")
+              }}
+              rows={4}
+              className={freezeReasonError ? "border-destructive" : ""}
+            />
+            {freezeReasonError && (
+              <p className="text-sm text-destructive">{freezeReasonError}</p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              This reason will be included in the notification email sent to the user.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setFreezeDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={confirmFreeze}>
+              <Lock className="h-4 w-4 mr-2" />
+              Freeze Account &amp; Notify
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
