@@ -15,6 +15,63 @@ function asStringArray(value: unknown) {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0) : []
 }
 
+type CampaignDonationRow = {
+  id: string
+  donorName: string | null
+  donorEmail: string | null
+  amount: unknown
+  isAnonymous: boolean
+  createdAt: Date
+}
+
+function buildCampaignDonorRows(donations: CampaignDonationRow[]) {
+  const donorsByKey = new Map<
+    string,
+    {
+      id: string
+      name: string
+      email: string | null
+      totalDonated: number
+      donationCount: number
+      lastDonationAt: Date
+    }
+  >()
+
+  for (const donation of donations) {
+    const isAnonymous = Boolean(donation.isAnonymous)
+    const name = isAnonymous ? 'Anonymous donor' : donation.donorName?.trim() || donation.donorEmail?.trim() || 'Unknown donor'
+    const email = isAnonymous ? null : donation.donorEmail?.trim() || null
+    const key = isAnonymous ? `anonymous-${donation.id}` : email?.toLowerCase() || name.toLowerCase() || `guest-${donation.id}`
+    const amount = Number(donation.amount || 0)
+    const existing = donorsByKey.get(key)
+
+    if (existing) {
+      existing.totalDonated += Number.isFinite(amount) ? amount : 0
+      existing.donationCount += 1
+      if (donation.createdAt.getTime() > existing.lastDonationAt.getTime()) {
+        existing.lastDonationAt = donation.createdAt
+      }
+      continue
+    }
+
+    donorsByKey.set(key, {
+      id: key,
+      name,
+      email,
+      totalDonated: Number.isFinite(amount) ? amount : 0,
+      donationCount: 1,
+      lastDonationAt: donation.createdAt,
+    })
+  }
+
+  return Array.from(donorsByKey.values())
+    .sort((a, b) => b.totalDonated - a.totalDonated)
+    .map((donor) => ({
+      ...donor,
+      lastDonationAt: donor.lastDonationAt.toISOString(),
+    }))
+}
+
 export async function GET() {
   const session = await getSession()
   if (!session || session.role !== 'fund_raiser') {
@@ -26,6 +83,18 @@ export async function GET() {
     orderBy: { createdAt: 'desc' },
     include: {
       _count: { select: { donations: true } },
+      donations: {
+        where: { status: 'completed' },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          donorName: true,
+          donorEmail: true,
+          amount: true,
+          isAnonymous: true,
+          createdAt: true,
+        },
+      },
     },
   })
 
@@ -46,6 +115,7 @@ export async function GET() {
       endDate: c.endDate,
       coverImage: c.coverImage,
       createdAt: c.createdAt.toISOString(),
+      donors: buildCampaignDonorRows(c.donations),
     })),
   })
 }
