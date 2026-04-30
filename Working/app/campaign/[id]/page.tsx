@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Lock } from "lucide-react";
 import { LiveCampaignProgress } from "@/components/campaigns/live-campaign-progress";
 import { ShareCampaignButton } from "@/components/campaigns/share-campaign-button";
+import { CampaignVerificationBadge } from "@/components/campaigns/campaign-verification-badge";
 
 
 export default async function CampaignDetailsPage({
@@ -25,7 +26,19 @@ export default async function CampaignDetailsPage({
   });
 
   if (!campaign) {
-    return <div className="p-8">Campaign not found.</div>;
+    return (
+      <main className="max-w-4xl mx-auto p-8">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-6 text-center">
+          <p className="font-semibold text-destructive">Campaign not found</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            This campaign does not exist or may have been removed.
+          </p>
+          <Link href="/browse" className="mt-4 inline-block text-sm text-primary underline-offset-4 hover:underline">
+            Browse other campaigns
+          </Link>
+        </div>
+      </main>
+    );
   }
 
   const progress =
@@ -36,6 +49,9 @@ export default async function CampaignDetailsPage({
   return (
     <main className="max-w-4xl mx-auto p-8 space-y-8">
       <section>
+        <div className="flex flex-wrap items-center gap-3 mb-3">
+          <CampaignVerificationBadge status={campaign.status} />
+        </div>
         <h1 className="text-3xl font-bold">{campaign.title}</h1>
         <p className="text-gray-600 mt-2">{campaign.summary}</p>
         <p className="mt-4">{campaign.description}</p>

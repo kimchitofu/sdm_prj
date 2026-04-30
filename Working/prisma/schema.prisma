@@ -46,6 +46,7 @@ model Campaign {
   donorCount              Int       @default(0)
   views                   Int       @default(0)
   favouriteCount          Int       @default(0)
+  shareCount              Int       @default(0)
   startDate               String
   endDate                 String
   coverImage              String?   @db.LongText

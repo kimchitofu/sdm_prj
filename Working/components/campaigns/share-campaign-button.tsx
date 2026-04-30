@@ -1,11 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { Share2, Copy, Check } from 'lucide-react'
+import { Share2, Copy, Check, Users } from 'lucide-react'
 
 interface ShareCampaignButtonProps {
   campaignId: string
   campaignTitle: string
+  initialShareCount?: number
 }
 
 const FacebookIcon = () => (
@@ -32,10 +33,32 @@ const LinkedInIcon = () => (
   </svg>
 )
 
-export function ShareCampaignButton({ campaignId, campaignTitle }: ShareCampaignButtonProps) {
+function formatCount(n: number): string {
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`
+  return String(n)
+}
+
+export function ShareCampaignButton({
+  campaignId,
+  campaignTitle,
+  initialShareCount = 0,
+}: ShareCampaignButtonProps) {
   const [copied, setCopied] = useState(false)
+  const [shareCount, setShareCount] = useState(initialShareCount)
 
   const getCampaignUrl = () => `${window.location.origin}/campaign/${campaignId}`
+
+  const recordShare = async () => {
+    try {
+      const res = await fetch(`/api/campaigns/${campaignId}/share`, { method: 'POST' })
+      if (res.ok) {
+        const data = await res.json()
+        setShareCount(data.shareCount)
+      }
+    } catch {
+      // best-effort — don't block the share if the counter fails
+    }
+  }
 
   const openShare = (platform: 'facebook' | 'twitter' | 'whatsapp' | 'linkedin') => {
     const url = getCampaignUrl()
@@ -49,12 +72,14 @@ export function ShareCampaignButton({ campaignId, campaignTitle }: ShareCampaign
     }
 
     window.open(shareUrls[platform], '_blank', 'noopener,noreferrer,width=600,height=500')
+    recordShare()
   }
 
   const copyLink = async () => {
     await navigator.clipboard.writeText(getCampaignUrl())
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+    recordShare()
   }
 
   const platforms = [
@@ -66,9 +91,18 @@ export function ShareCampaignButton({ campaignId, campaignTitle }: ShareCampaign
 
   return (
     <div className="rounded-xl border bg-gray-50 p-5 space-y-4">
-      <div className="flex items-center gap-2">
-        <Share2 className="h-5 w-5 text-blue-600" />
-        <h3 className="font-semibold text-lg">Share this Campaign</h3>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Share2 className="h-5 w-5 text-blue-600" />
+          <h3 className="font-semibold text-lg">Share this Campaign</h3>
+        </div>
+        {shareCount > 0 && (
+          <div className="flex items-center gap-1.5 text-sm text-muted-foreground bg-white border rounded-full px-3 py-1">
+            <Users className="h-3.5 w-3.5" />
+            <span className="font-medium">{formatCount(shareCount)}</span>
+            <span>{shareCount === 1 ? 'share' : 'shares'}</span>
+          </div>
+        )}
       </div>
 
       <p className="text-sm text-gray-500">
