@@ -2,10 +2,9 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
 import { getRedirectForRole } from '@/lib/user'
-import { useAuth } from '@/components/providers/session-provider'
 import { Eye, EyeOff, Loader2, Heart, TrendingUp, Check } from 'lucide-react'
 import { Logo } from '@/components/brand/logo'
 import { Button } from '@/components/ui/button'
@@ -16,11 +15,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 
-type UserRole = 'donor' | 'fund_raiser'
+type UserRole = 'donee' | 'fund_raiser'
 
 const roleOptions = [
   {
-    id: 'donor' as UserRole,
+    id: 'donee' as UserRole,
     title: 'Donor',
     subtitle: 'Support causes you care about',
     icon: Heart,
@@ -46,10 +45,8 @@ const roleOptions = [
 ]
 
 function RegisterForm() {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const defaultRole = searchParams.get('role') as UserRole | null
-  const { refresh } = useAuth()
 
   const [step, setStep] = useState<'role' | 'details'>(defaultRole ? 'details' : 'role')
   const [selectedRole, setSelectedRole] = useState<UserRole | null>(defaultRole)
@@ -116,7 +113,7 @@ function RegisterForm() {
           password: formData.password,
           firstName: formData.firstName,
           lastName: formData.lastName,
-          role: selectedRole ?? 'donor',
+          role: selectedRole ?? 'donee',
         }),
       })
 
@@ -127,11 +124,11 @@ function RegisterForm() {
         return
       }
 
-      refresh()
+      localStorage.removeItem('currentUser')
       toast.success('Account created successfully!', {
         description: "Welcome to FundBridge. Let's get started!",
       })
-      router.push(getRedirectForRole(data.user.role))
+      window.location.href = getRedirectForRole(data.user.role)
     } catch {
       toast.error('An error occurred', { description: 'Please try again.' })
     } finally {
@@ -258,7 +255,7 @@ function RegisterForm() {
                 <CardDescription>
                   Sign up as a{' '}
                   <span className="font-medium text-foreground">
-                    {selectedRole === 'fund_raiser' ? 'Fund Raiser' : 'Donor'}
+                    {selectedRole === 'fund_raiser' ? 'Fund Raiser' : 'Donee'}
                   </span>
                 </CardDescription>
               </CardHeader>
