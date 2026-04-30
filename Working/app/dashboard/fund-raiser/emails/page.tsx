@@ -3,18 +3,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import {
+  AlertCircle,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
+  Layers,
   Mail,
   MessageSquareHeart,
   PencilLine,
   RefreshCw,
   Save,
+  Search,
   Send,
   Sparkles,
   Trash2,
+  Users,
   WandSparkles,
+  X,
 } from "lucide-react"
 import { DashboardLayout } from "@/components/layout/dashboard-sidebar"
 import { Badge } from "@/components/ui/badge"
@@ -24,7 +29,6 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { StatsCard } from "@/components/ui/stats-card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/hooks/use-toast"
 import { EmailAutomationController } from "@/app/controller/EmailAutomationController"
@@ -93,11 +97,19 @@ const emailPurposeOptions: Array<{ value: EmailDraftPurpose; label: string }> = 
 ]
 const workflowOrder: EmailTriggerKey[] = ["manual_update", "thank_you", "milestone", "new_donation_alert"]
 const ACTIVITY_PAGE_SIZE = 10
+const ACTIVITY_FETCH_SIZE = 200
 
 function formatDateTime(value?: string) {
   if (!value) return "No event timestamp"
-  return new Date(value).toLocaleString()
+  return new Date(value).toLocaleString("en-AU", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  })
 }
+
 
 function groupEmailActivity(logs: EmailLogSummary[]): GroupedEmailActivity[] {
   const grouped = new Map<string, GroupedEmailActivity>()
@@ -178,9 +190,17 @@ export default function FundRaiserEmailsPage() {
     type: "idle",
     message: "",
   })
+  const [manualDeliveryStatus, setManualDeliveryStatus] = useState<{
+    type: "idle" | "sending" | "success" | "error"
+    message: string
+  }>({
+    type: "idle",
+    message: "",
+  })
 
   const [activityStatusFilter, setActivityStatusFilter] = useState<"all" | EmailLogSummary["status"]>("all")
   const [activityCampaignFilter, setActivityCampaignFilter] = useState<string>("all")
+  const [activityCampaignSearch, setActivityCampaignSearch] = useState("")
   const [activitySortOrder, setActivitySortOrder] = useState<"newest" | "oldest">("newest")
   const [activityPage, setActivityPage] = useState(1)
   const [activityMeta, setActivityMeta] = useState<EmailLogsMeta>({
@@ -221,11 +241,10 @@ export default function FundRaiserEmailsPage() {
 
   const refreshEmailsDashboard = useCallback(
     async (options?: { page?: number; activityOnly?: boolean; showToast?: boolean }) => {
-      const requestedPage = options?.page ?? activityPage
       const activityOnly = options?.activityOnly ?? hasLoadedEmailDataRef.current
       const params = new URLSearchParams({
-        logsPage: String(requestedPage),
-        logsPageSize: String(ACTIVITY_PAGE_SIZE),
+        logsPage: "1",
+        logsPageSize: String(ACTIVITY_FETCH_SIZE),
         logsStatus: activityStatusFilter,
         logsSort: activitySortOrder,
         logsCampaignId: activityCampaignFilter,
@@ -254,8 +273,8 @@ export default function FundRaiserEmailsPage() {
         }
 
         const nextLogsMeta: EmailLogsMeta = data.logsMeta || {
-          page: requestedPage,
-          pageSize: ACTIVITY_PAGE_SIZE,
+          page: 1,
+          pageSize: ACTIVITY_FETCH_SIZE,
           totalCount: Array.isArray(data.logs) ? data.logs.length : 0,
           totalPages: 1,
           status: activityStatusFilter,
@@ -271,7 +290,6 @@ export default function FundRaiserEmailsPage() {
         setTemplates(Array.isArray(data.templates) && data.templates.length > 0 ? data.templates : defaultEmailAutomationController.createDefaultTemplates())
         setActivityLogs(Array.isArray(data.logs) ? data.logs : [])
         setActivityMeta(nextLogsMeta)
-        setActivityPage(nextLogsMeta.page)
         hasLoadedEmailDataRef.current = true
 
         if (options?.showToast) {
@@ -298,7 +316,7 @@ export default function FundRaiserEmailsPage() {
         }
       }
     },
-    [activityCampaignFilter, activityPage, activitySortOrder, activityStatusFilter]
+    [activityCampaignFilter, activitySortOrder, activityStatusFilter]
   )
 
   const persistWorkflowChange = useCallback(async (payload: Record<string, unknown>) => {
@@ -591,6 +609,7 @@ export default function FundRaiserEmailsPage() {
       type: "idle",
       message: regenerate ? "Generating another variation..." : "Generating AI draft...",
     })
+    setManualDeliveryStatus({ type: "idle", message: "" })
 
     try {
       const nextVariation = regenerate ? variationIndex + 1 : 1
@@ -612,7 +631,7 @@ export default function FundRaiserEmailsPage() {
       })
       toast({
         title: regenerate ? "New variation generated" : "AI draft generated",
-        description: "You can edit the subject and message before saving or sending.",
+        description: "You can edit the subject and message before saving as a draft or sending.",
       })
     } catch (error) {
       const message = error instanceof Error ? error.message : "Please try again."
@@ -640,12 +659,26 @@ export default function FundRaiserEmailsPage() {
 
   const handleManualDelivery = async (deliveryMode: "send" | "queue") => {
     if (!generatedDraft) {
+      const message = "Generate or choose a saved draft first."
+      setManualDeliveryStatus({ type: "error", message })
       toast({
         title: "No draft selected",
-        description: "Generate or choose a saved draft first.",
+        description: message,
         variant: "destructive",
       })
       return
+    }
+
+    if (deliveryMode === "send") {
+      setManualDeliveryStatus({
+        type: "sending",
+        message: `Sending manual update to ${selectedSegment?.recipientsWithEmailCount ?? 0} captured email${(selectedSegment?.recipientsWithEmailCount ?? 0) === 1 ? "" : "s"}...`,
+      })
+    } else {
+      setManualDeliveryStatus({
+        type: "sending",
+        message: "Queueing manual update...",
+      })
     }
 
     try {
@@ -657,6 +690,13 @@ export default function FundRaiserEmailsPage() {
       })
 
       setActivityLogs((current) => [result.log, ...current])
+      setManualDeliveryStatus({
+        type: "success",
+        message:
+          deliveryMode === "send"
+            ? `Manual update sent successfully to ${result.deliveredCount} recipient${result.deliveredCount === 1 ? "" : "s"}.`
+            : "Manual update queued for the selected donor segment.",
+      })
       toast({
         title: deliveryMode === "send" ? "Manual update sent" : "Manual update queued",
         description:
@@ -664,16 +704,24 @@ export default function FundRaiserEmailsPage() {
             ? `Email sent to ${result.deliveredCount} recipient${result.deliveredCount === 1 ? "" : "s"}.`
             : "The manual update was queued for the selected donor segment.",
       })
+
+      await refreshEmailsDashboard({ page: 1, activityOnly: true })
     } catch (error) {
+      const message = error instanceof Error ? error.message : "Please review the selected campaign and audience."
+      setManualDeliveryStatus({
+        type: "error",
+        message,
+      })
       toast({
         title: deliveryMode === "send" ? "Unable to send manual update" : "Unable to queue manual update",
-        description: error instanceof Error ? error.message : "Please review the selected campaign and audience.",
+        description: message,
         variant: "destructive",
       })
     }
   }
 
   const handleGeneratedDraftChange = (field: "subject" | "body", value: string) => {
+    setManualDeliveryStatus((current) => (current.type === "sending" ? current : { type: "idle", message: "" }))
     setGeneratedDraft((current) => {
       if (!current) return current
       return {
@@ -686,6 +734,7 @@ export default function FundRaiserEmailsPage() {
   const handleUseSavedDraft = (draft: EmailDraftSummary) => {
     setGeneratedDraft(draft)
     setManualAiStatus({ type: "idle", message: "Saved draft loaded." })
+    setManualDeliveryStatus({ type: "idle", message: "" })
     if (draft.segmentKey) {
       setSelectedSegmentKey(draft.segmentKey)
     }
@@ -698,6 +747,7 @@ export default function FundRaiserEmailsPage() {
 
     if (generatedDraft?.id === draftId) {
       setGeneratedDraft(null)
+      setManualDeliveryStatus({ type: "idle", message: "" })
     }
 
     toast({ title: "Draft deleted", description: "The saved draft was removed." })
@@ -716,12 +766,16 @@ export default function FundRaiserEmailsPage() {
   )
 
   const filteredGroupedActivityLogs = useMemo(() => {
+    const campaignSearchTerm = activityCampaignSearch.trim().toLowerCase()
+
     const filtered = groupedActivityLogs.filter((log) => {
       const statusMatches = activityStatusFilter === "all" || log.status === activityStatusFilter
       const campaignMatches =
         activityCampaignFilter === "all" || (log.campaignId || log.campaignTitle || "unknown") === activityCampaignFilter
+      const campaignSearchMatches =
+        !campaignSearchTerm || (log.campaignTitle || "No campaign").toLowerCase().includes(campaignSearchTerm)
 
-      return statusMatches && campaignMatches
+      return statusMatches && campaignMatches && campaignSearchMatches
     })
 
     filtered.sort((a, b) =>
@@ -731,15 +785,38 @@ export default function FundRaiserEmailsPage() {
     )
 
     return filtered
-  }, [groupedActivityLogs, activityStatusFilter, activityCampaignFilter, activitySortOrder])
+  }, [groupedActivityLogs, activityStatusFilter, activityCampaignFilter, activityCampaignSearch, activitySortOrder])
 
-  const visibleGroupedActivityLogs = filteredGroupedActivityLogs
-  const firstActivityRecord = activityMeta.totalCount === 0 ? 0 : (activityMeta.page - 1) * activityMeta.pageSize + 1
-  const lastActivityRecord = Math.min(activityMeta.page * activityMeta.pageSize, activityMeta.totalCount)
+  const totalGroupedPages = Math.max(1, Math.ceil(filteredGroupedActivityLogs.length / ACTIVITY_PAGE_SIZE))
+  const visibleGroupedStartIndex = (activityPage - 1) * ACTIVITY_PAGE_SIZE
+  const visibleGroupedActivityLogs = filteredGroupedActivityLogs.slice(
+    visibleGroupedStartIndex,
+    visibleGroupedStartIndex + ACTIVITY_PAGE_SIZE
+  )
+  const visibleGroupedCount = visibleGroupedActivityLogs.length
+  const visibleGroupedRangeStart = visibleGroupedCount > 0 ? visibleGroupedStartIndex + 1 : 0
+  const visibleGroupedRangeEnd = Math.min(visibleGroupedStartIndex + visibleGroupedCount, filteredGroupedActivityLogs.length)
+
+  const activitySummary = useMemo(() => {
+    const recipientCount = filteredGroupedActivityLogs.reduce((sum, group) => sum + group.recipientCount, 0)
+    const failedCount = filteredGroupedActivityLogs.filter((group) => group.status === "failed").length
+
+    return {
+      groupedCount: filteredGroupedActivityLogs.length,
+      recipientCount,
+      failedCount,
+    }
+  }, [filteredGroupedActivityLogs])
+  const hasActivityFilters =
+    activityStatusFilter !== "all" || activityCampaignFilter !== "all" || activityCampaignSearch.trim().length > 0
+
+  useEffect(() => {
+    setActivityPage((current) => Math.min(Math.max(current, 1), totalGroupedPages))
+  }, [totalGroupedPages])
 
   useEffect(() => {
     setExpandedActivityRows([])
-  }, [activityStatusFilter, activityCampaignFilter, activitySortOrder, activityPage, activityLogs])
+  }, [activityStatusFilter, activityCampaignFilter, activityCampaignSearch, activitySortOrder, activityPage, activityLogs])
 
   const toggleActivityRow = (groupId: string) => {
     setExpandedActivityRows((current) =>
@@ -757,6 +834,11 @@ export default function FundRaiserEmailsPage() {
     setActivityCampaignFilter(value)
   }
 
+  const handleActivityCampaignSearchChange = (value: string) => {
+    setActivityPage(1)
+    setActivityCampaignSearch(value)
+  }
+
   const handleActivitySortOrderChange = (value: string) => {
     setActivityPage(1)
     setActivitySortOrder(value as "newest" | "oldest")
@@ -770,8 +852,9 @@ export default function FundRaiserEmailsPage() {
       templateBody !== (selectedWorkflow?.template?.bodyTemplate || ""))
   const hasCustomPurpose = manualPurpose !== "custom" || Boolean(customPurposeText.trim())
   const canGenerateAi = Boolean(selectedCampaign && selectedSegment && hasCustomPurpose && !isLoadingEmailData)
+  const isSendingManualUpdate = manualDeliveryStatus.type === "sending"
   const manualDeliveryDisabled =
-    isLoadingEmailData || !generatedDraft || !selectedSegment || selectedSegment.recipientsWithEmailCount <= 0
+    isLoadingEmailData || isSendingManualUpdate || !generatedDraft || !selectedSegment || selectedSegment.recipientsWithEmailCount <= 0
 
 
 
@@ -1011,7 +1094,7 @@ export default function FundRaiserEmailsPage() {
   </Card>
 </div>
         ) : (
-          <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+          <div className="grid gap-6 xl:grid-cols-[0.92fr_1.08fr]">
             <Card>
               <CardHeader>
                 <CardTitle>Manual updates</CardTitle>
@@ -1109,14 +1192,6 @@ export default function FundRaiserEmailsPage() {
                     <WandSparkles className="mr-2 h-4 w-4" />
                     {isGenerating ? "Generating..." : "Generate with AI"}
                   </Button>
-                  <Button type="button" variant="outline" onClick={() => handleGenerateDraft(true)} disabled={isGenerating || !generatedDraft || !canGenerateAi} className="cursor-pointer disabled:cursor-not-allowed">
-                    <Sparkles className="mr-2 h-4 w-4" />
-                    Regenerate variation
-                  </Button>
-                  <Button type="button" variant="outline" onClick={handleSaveDraft} disabled={!generatedDraft} className="cursor-pointer disabled:cursor-not-allowed">
-                    <Save className="mr-2 h-4 w-4" />
-                    Save generated content
-                  </Button>
                 </div>
 
                 {!canGenerateAi ? (
@@ -1158,10 +1233,28 @@ export default function FundRaiserEmailsPage() {
                   />
                 </div>
 
+                {manualDeliveryStatus.message ? (
+                  <div
+                    className={`rounded-lg border px-4 py-3 text-sm ${
+                      manualDeliveryStatus.type === "error"
+                        ? "border-destructive/40 bg-destructive/10 text-destructive"
+                        : manualDeliveryStatus.type === "success"
+                          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                          : "border-muted bg-muted/40 text-muted-foreground"
+                    }`}
+                  >
+                    {manualDeliveryStatus.message}
+                  </div>
+                ) : null}
+
                 <div className="flex flex-wrap gap-2">
                   <Button type="button" onClick={() => handleManualDelivery("send")} disabled={manualDeliveryDisabled} className="cursor-pointer disabled:cursor-not-allowed">
                     <Send className="mr-2 h-4 w-4" />
-                    Send now
+                    {isSendingManualUpdate ? "Sending..." : "Send now"}
+                  </Button>
+                  <Button type="button" variant="outline" onClick={handleSaveDraft} disabled={!generatedDraft || isSendingManualUpdate} className="cursor-pointer disabled:cursor-not-allowed">
+                    <Save className="mr-2 h-4 w-4" />
+                    Save draft
                   </Button>
                 </div>
               </CardContent>
@@ -1169,180 +1262,271 @@ export default function FundRaiserEmailsPage() {
           </div>
         )}
 
-        <div className="grid gap-6 xl:grid-cols-[1.5fr_0.5fr]">
+        <div className="grid gap-6">
           <Card>
-            <CardHeader className="gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <CardTitle>Email activity</CardTitle>
-                <CardDescription>
-                  Recent workflow tests and sent emails from both the automatic and manual sections.
-                </CardDescription>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => refreshEmailsDashboard({ activityOnly: true, showToast: true })}
-                disabled={isLoadingEmailData || isRefreshingActivity}
-                className="cursor-pointer disabled:cursor-not-allowed"
-              >
-                <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshingActivity ? "animate-spin" : ""}`} />
-                {isRefreshingActivity ? "Refreshing..." : "Refresh"}
-              </Button>
+            <CardHeader>
+              <CardTitle>Email activity</CardTitle>
+              <CardDescription>
+                Recent workflow tests and sent emails from both the automatic and manual sections.
+              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <Select value={activityStatusFilter} onValueChange={handleActivityStatusFilterChange}>
-                    <SelectTrigger className="cursor-pointer">
-                      <SelectValue placeholder="Filter by status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All statuses</SelectItem>
-                      <SelectItem value="sent">Sent</SelectItem>
-                      <SelectItem value="queued">Queued</SelectItem>
-                      <SelectItem value="failed">Failed</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  <Select value={activityCampaignFilter} onValueChange={handleActivityCampaignFilterChange}>
-                    <SelectTrigger className="cursor-pointer">
-                      <SelectValue placeholder="Filter by campaign" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All campaigns</SelectItem>
-                      {activityCampaignOptions.map((campaignOption) => (
-                        <SelectItem key={campaignOption.id} value={campaignOption.id}>
-                          {campaignOption.title}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  <Select value={activitySortOrder} onValueChange={handleActivitySortOrderChange}>
-                    <SelectTrigger className="cursor-pointer">
-                      <SelectValue placeholder="Sort order" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="newest">Newest first</SelectItem>
-                      <SelectItem value="oldest">Oldest first</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <p className="text-sm text-muted-foreground">
-                  Showing {firstActivityRecord}-{lastActivityRecord} of {activityMeta.totalCount} email log records
-                </p>
+            <CardContent className="space-y-3 pt-0">
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                {[
+                  { label: "Email records", value: String(activityMeta.totalCount), icon: Mail, colour: "text-primary" },
+                  { label: "Grouped sends", value: String(activitySummary.groupedCount), icon: Layers, colour: "text-blue-500" },
+                  { label: "Recipients", value: String(activitySummary.recipientCount), icon: Users, colour: "text-green-600" },
+                  { label: "Failed", value: String(activitySummary.failedCount), icon: AlertCircle, colour: "text-red-500" },
+                ].map(({ label, value, icon: Icon, colour }) => (
+                  <div key={label} className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted/60">
+                      <Icon className={`h-3.5 w-3.5 ${colour}`} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-base font-bold leading-tight text-foreground">{value}</p>
+                      <p className="truncate text-xs leading-tight text-muted-foreground">{label}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
 
-              <Table className="table-fixed">
-                <colgroup>
-                  <col className="w-[15%]" />
-                  <col className="w-[21%]" />
-                  <col className="w-[15%]" />
-                  <col className="w-[11%]" />
-                  <col className="w-[23%]" />
-                  <col className="w-[15%]" />
-                </colgroup>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Workflow</TableHead>
-                    <TableHead>Campaign</TableHead>
-                    <TableHead>Recipients</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Subject</TableHead>
-                    <TableHead>Date sent</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredGroupedActivityLogs.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center text-muted-foreground">
-                        No email activity yet. Run a quick test or send a workflow/manual email to populate the activity log.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    visibleGroupedActivityLogs.flatMap((group) => {
+              <div className="rounded-xl border bg-muted/20 p-3">
+                <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+                  <div className="grid flex-1 gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(240px,1fr)_155px_150px]">
+                    <label className="space-y-1">
+                      <span className="text-xs font-medium text-muted-foreground">Search campaign</span>
+                      <div className="relative">
+                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                          value={activityCampaignSearch}
+                          onChange={(event) => handleActivityCampaignSearchChange(event.target.value)}
+                          placeholder="Search campaign name"
+                          className="h-9 bg-background pl-9 text-sm"
+                        />
+                      </div>
+                    </label>
+
+                    <label className="space-y-1">
+                      <span className="text-xs font-medium text-muted-foreground">Status</span>
+                      <Select value={activityStatusFilter} onValueChange={handleActivityStatusFilterChange}>
+                        <SelectTrigger className="h-9 cursor-pointer bg-background text-sm">
+                          <SelectValue placeholder="Filter by status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All statuses</SelectItem>
+                          <SelectItem value="sent">Sent</SelectItem>
+                          <SelectItem value="queued">Queued</SelectItem>
+                          <SelectItem value="failed">Failed</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </label>
+
+                
+                    <label className="space-y-1">
+                      <span className="text-xs font-medium text-muted-foreground">Sort</span>
+                      <Select value={activitySortOrder} onValueChange={handleActivitySortOrderChange}>
+                        <SelectTrigger className="h-9 cursor-pointer bg-background text-sm">
+                          <SelectValue placeholder="Sort order" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="newest">Newest first</SelectItem>
+                          <SelectItem value="oldest">Oldest first</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </label>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-2 xl:justify-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => refreshEmailsDashboard({ activityOnly: true, showToast: true })}
+                      disabled={isLoadingEmailData || isRefreshingActivity}
+                      className="h-9 shrink-0 cursor-pointer disabled:cursor-not-allowed"
+                    >
+                      <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshingActivity ? "animate-spin" : ""}`} />
+                      {isRefreshingActivity ? "Refreshing..." : "Refresh"}
+                    </Button>
+
+                    {hasActivityFilters ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setActivityPage(1)
+                          setActivityStatusFilter("all")
+                          setActivityCampaignFilter("all")
+                          setActivityCampaignSearch("")
+                        }}
+                        className="h-9 shrink-0 cursor-pointer px-3 text-sm"
+                      >
+                        <X className="mr-1.5 h-4 w-4" />
+                        Clear
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+
+              {filteredGroupedActivityLogs.length === 0 ? (
+                <Card>
+                  <CardContent className="py-10 text-center">
+                    <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-muted">
+                      <Mail className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    <h3 className="mb-1 text-base font-semibold">
+                      {hasActivityFilters ? "No matching email activity" : "No email activity yet"}
+                    </h3>
+                    <p className="mx-auto mb-4 max-w-sm text-sm text-muted-foreground">
+                      {hasActivityFilters
+                        ? "Try clearing the status or campaign filter to see more email records."
+                        : "Run a quick test or send a workflow/manual email to populate the activity log."}
+                    </p>
+                    {hasActivityFilters ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setActivityPage(1)
+                          setActivityStatusFilter("all")
+                          setActivityCampaignFilter("all")
+                          setActivityCampaignSearch("")
+                        }}
+                        className="cursor-pointer"
+                      >
+                        <X className="mr-2 h-4 w-4" />
+                        Clear filters
+                      </Button>
+                    ) : null}
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="overflow-hidden rounded-xl border bg-card">
+                  <div className="hidden grid-cols-[140px_minmax(260px,1fr)_220px_minmax(280px,0.8fr)] gap-3 border-b bg-muted/30 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground lg:grid">
+                    <span>Status / date</span>
+                    <span>Email details</span>
+                    <span>Workflow</span>
+                    <span>Recipients</span>
+                  </div>
+
+                  <div className="divide-y">
+                    {visibleGroupedActivityLogs.map((group) => {
                       const isExpanded = expandedActivityRows.includes(group.id)
+                      const firstRecipient = group.recipients[0]
+                      const firstRecipientName = firstRecipient?.name || firstRecipient?.email || "Unnamed recipient"
+                      const firstRecipientEmail = firstRecipient?.email && firstRecipient.email !== firstRecipientName ? firstRecipient.email : ""
+                      const additionalRecipientCount = Math.max(0, group.recipientCount - 1)
 
-                      return [
-                        <TableRow key={group.id}>
-                          <TableCell className="overflow-hidden align-top">
-                            <div className="min-w-0 space-y-1">
-                              <p className="truncate font-medium" title={group.ruleLabel}>{group.ruleLabel}</p>
-                              <p className="truncate text-xs text-muted-foreground" title={group.ruleKey}>{group.ruleKey}</p>
-                            </div>
-                          </TableCell>
-                          <TableCell className="truncate align-top" title={group.campaignTitle || "No campaign"}>{group.campaignTitle || "No campaign"}</TableCell>
-                          <TableCell className="overflow-hidden align-top">
-                            <div className="min-w-0 space-y-2">
-                              <p className="truncate font-medium">{group.recipientCount} recipient{group.recipientCount === 1 ? "" : "s"}</p>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="h-auto px-0 py-0 text-sm cursor-pointer"
-                                onClick={() => toggleActivityRow(group.id)}
+                      return (
+                        <div key={group.id} className="bg-card px-3 py-3 transition-colors hover:bg-muted/20">
+                          <div className="grid gap-3 lg:grid-cols-[140px_minmax(260px,1fr)_220px_minmax(280px,0.8fr)] lg:items-center">
+                            <div className="space-y-1">
+                              <Badge
+                                variant={group.status === "sent" ? "default" : group.status === "failed" ? "destructive" : "secondary"}
+                                className="px-2 py-0.5 text-xs"
                               >
-                                {isExpanded ? (
-                                  <>
-                                    <ChevronDown className="mr-1 h-4 w-4" />
-                                    Hide recipients
-                                  </>
-                                ) : (
-                                  <>
-                                    <ChevronRight className="mr-1 h-4 w-4" />
-                                    Show recipients
-                                  </>
-                                )}
-                              </Button>
+                                {group.statusLabel}
+                              </Badge>
+                              <p className="text-xs leading-snug text-muted-foreground">{formatDateTime(group.sentAt)}</p>
                             </div>
-                          </TableCell>
-                          <TableCell className="overflow-hidden align-top">
-                            <Badge variant={group.status === "sent" ? "default" : group.status === "failed" ? "destructive" : "secondary"}>
-                              {group.statusLabel}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="truncate align-top" title={group.subject}>{group.subject}</TableCell>
-                          <TableCell className="whitespace-nowrap align-top text-sm">{formatDateTime(group.sentAt)}</TableCell>
-                        </TableRow>,
-                        ...(isExpanded
-                          ? [
-                              <TableRow key={`${group.id}-expanded`}>
-                                <TableCell colSpan={6} className="bg-muted/20">
-                                  <div className="space-y-2 py-1">
-                                    <p className="text-sm font-medium">Recipients</p>
-                                    <div className="space-y-2">
-                                      {group.recipients.map((recipient, index) => (
-                                        <div key={`${group.id}-${recipient.email || recipient.name}-${index}`} className="rounded-md border bg-background px-3 py-2 text-sm">
-                                          <p className="text-muted-foreground">{recipient.name || recipient.email || "Unnamed recipient"}</p>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                </TableCell>
-                              </TableRow>,
-                            ]
-                          : []),
-                      ]
-                    })
-                  )}
-                </TableBody>
-              </Table>
 
-              {activityMeta.totalPages > 1 ? (
-                <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="min-w-0 space-y-1">
+                              <p className="truncate text-sm font-semibold text-foreground md:text-[15px]">{group.subject}</p>
+                              <p className="truncate text-sm text-muted-foreground">{group.campaignTitle || "No campaign"}</p>
+                            </div>
+
+                            <div className="min-w-0 space-y-1">
+                              <p className="truncate text-sm font-medium text-foreground">{group.ruleLabel}</p>
+                              
+                            </div>
+
+                            <div className="min-w-0 rounded-lg bg-muted/20 px-3 py-2">
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="flex min-w-0 items-center gap-2.5">
+                                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-background text-muted-foreground">
+                                    <Users className="h-4 w-4" />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="truncate text-sm font-semibold leading-tight text-foreground">{firstRecipientName}</p>
+                                    <p className="truncate text-xs leading-snug text-muted-foreground">
+                                      {firstRecipientEmail ||
+                                        (additionalRecipientCount > 0
+                                          ? `Includes ${additionalRecipientCount} more recipient${additionalRecipientCount === 1 ? "" : "s"}`
+                                          : "Single recipient")}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="flex shrink-0 items-center gap-2">
+                                  <Badge variant="secondary" className="px-2 py-0.5 text-xs font-medium">
+                                    {group.recipientCount} {group.recipientCount === 1 ? "recipient" : "recipients"}
+                                  </Badge>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 shrink-0 cursor-pointer px-2 text-xs"
+                                    onClick={() => toggleActivityRow(group.id)}
+                                  >
+                                    {isExpanded ? (
+                                      <>
+                                        <ChevronDown className="mr-1 h-4 w-4" />
+                                        Hide
+                                      </>
+                                    ) : (
+                                      <>
+                                        <ChevronRight className="mr-1 h-4 w-4" />
+                                        List
+                                      </>
+                                    )}
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {isExpanded ? (
+                            <div className="mt-3 border-t pt-3">
+                              <div className="mb-2 flex items-center justify-between gap-2">
+                                <p className="text-sm font-medium text-foreground">Recipient list</p>
+                                <p className="text-xs text-muted-foreground">{group.recipientCount} total</p>
+                              </div>
+                              <div className="grid gap-1.5 md:grid-cols-2">
+                                {group.recipients.map((recipient, index) => (
+                                  <div
+                                    key={`${group.id}-${recipient.email || recipient.name}-${index}`}
+                                    className="rounded-md bg-muted/30 px-2.5 py-1.5 text-sm"
+                                  >
+                                    <p className="truncate font-medium text-foreground">{recipient.name || recipient.email || "Unnamed recipient"}</p>
+                                    {recipient.email ? <p className="truncate text-xs text-muted-foreground">{recipient.email}</p> : null}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {filteredGroupedActivityLogs.length > 0 ? (
+                <div className="flex flex-col gap-2 border-t pt-2 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm text-muted-foreground">
-                    Page {activityMeta.page} of {activityMeta.totalPages}
+                    {activityMeta.totalCount} email record{activityMeta.totalCount === 1 ? "" : "s"} total • Page {activityPage} of {totalGroupedPages}
                   </p>
                   <div className="flex gap-2">
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      disabled={activityMeta.page <= 1 || isRefreshingActivity}
+                      disabled={activityPage <= 1 || isRefreshingActivity}
                       onClick={() => setActivityPage((current) => Math.max(1, current - 1))}
-                      className="cursor-pointer disabled:cursor-not-allowed"
+                      className="h-8 cursor-pointer disabled:cursor-not-allowed"
                     >
                       Previous
                     </Button>
@@ -1350,9 +1534,9 @@ export default function FundRaiserEmailsPage() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      disabled={activityMeta.page >= activityMeta.totalPages || isRefreshingActivity}
-                      onClick={() => setActivityPage((current) => Math.min(activityMeta.totalPages, current + 1))}
-                      className="cursor-pointer disabled:cursor-not-allowed"
+                      disabled={activityPage >= totalGroupedPages || isRefreshingActivity}
+                      onClick={() => setActivityPage((current) => Math.min(totalGroupedPages, current + 1))}
+                      className="h-8 cursor-pointer disabled:cursor-not-allowed"
                     >
                       Next
                     </Button>

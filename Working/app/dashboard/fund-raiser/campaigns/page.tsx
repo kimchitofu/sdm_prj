@@ -19,6 +19,8 @@ import {
   ArrowUpDown,
   MessageSquarePlus,
   Loader2,
+  DollarSign,
+  Mail,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card2, CardContent2 } from "@/components/ui/card2"
@@ -62,6 +64,15 @@ type SortOption = "newest" | "ending-soon" | "most-viewed" | "highest-raised" | 
 
 type CampaignStatus = "draft" | "active" | "completed" | "suspended" | "cancelled"
 
+type CampaignDonorRow = {
+  id: string
+  name: string
+  email: string | null
+  totalDonated: number
+  donationCount: number
+  lastDonationAt: string
+}
+
 type CampaignRow = {
   id: string
   title: string
@@ -78,6 +89,7 @@ type CampaignRow = {
   endDate: string
   coverImage: string
   createdAt: string
+  donors?: CampaignDonorRow[]
 }
 
 type PageUser = {
@@ -159,6 +171,8 @@ export default function ManageCampaignsPage() {
   const [updateContent, setUpdateContent] = useState("")
   const [updateError, setUpdateError] = useState<string | null>(null)
   const [updateSuccess, setUpdateSuccess] = useState<string | null>(null)
+  const [donorDialogOpen, setDonorDialogOpen] = useState(false)
+  const [selectedCampaignForDonors, setSelectedCampaignForDonors] = useState<CampaignRow | null>(null)
 
   useEffect(() => {
     let isMounted = true
@@ -390,6 +404,15 @@ export default function ManageCampaignsPage() {
     }
   }
 
+  const openDonorDialog = (campaign: CampaignRow) => {
+    setSelectedCampaignForDonors(campaign)
+    setDonorDialogOpen(true)
+  }
+
+  const selectedCampaignDonors = selectedCampaignForDonors?.donors ?? []
+  const selectedCampaignDonorTotal = selectedCampaignDonors.reduce((sum, donor) => sum + donor.totalDonated, 0)
+  const selectedCampaignDonationCount = selectedCampaignDonors.reduce((sum, donor) => sum + donor.donationCount, 0)
+
   const CampaignCard = ({ campaign }: { campaign: CampaignRow }) => {
     const progress = campaign.targetAmount > 0 ? (campaign.raisedAmount / campaign.targetAmount) * 100 : 0
     const daysRemaining = Math.max(
@@ -481,6 +504,10 @@ export default function ManageCampaignsPage() {
                     <DropdownMenuItem onClick={() => openUpdateDialog(campaign)}>
                       <MessageSquarePlus className="mr-2 h-4 w-4" />
                       Post Update
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => openDonorDialog(campaign)}>
+                      <Users className="mr-2 h-4 w-4" />
+                      View Donors
                     </DropdownMenuItem>
                     <DropdownMenuItem disabled>
                       <Copy className="mr-2 h-4 w-4" />
@@ -805,6 +832,103 @@ export default function ManageCampaignsPage() {
                 <div className="py-8 text-center text-sm text-muted-foreground">No updates have been posted for this campaign yet.</div>
               )}
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={donorDialogOpen}
+        onOpenChange={(open) => {
+          setDonorDialogOpen(open)
+          if (!open) {
+            setSelectedCampaignForDonors(null)
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Campaign donors</DialogTitle>
+            <DialogDescription>
+              Donor names, emails, and total donated for {selectedCampaignForDonors?.title || "this campaign"}.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-lg border bg-muted/20 p-3">
+                <div className="mb-1 flex items-center gap-2 text-sm text-muted-foreground">
+                  <Users className="h-4 w-4" />
+                  Donors
+                </div>
+                <p className="text-2xl font-semibold text-foreground">{selectedCampaignDonors.length}</p>
+              </div>
+              <div className="rounded-lg border bg-muted/20 p-3">
+                <div className="mb-1 flex items-center gap-2 text-sm text-muted-foreground">
+                  <DollarSign className="h-4 w-4" />
+                  Total donated
+                </div>
+                <p className="text-2xl font-semibold text-foreground">{formatCurrency(selectedCampaignDonorTotal)}</p>
+              </div>
+              <div className="rounded-lg border bg-muted/20 p-3">
+                <div className="mb-1 flex items-center gap-2 text-sm text-muted-foreground">
+                  <Heart className="h-4 w-4" />
+                  Donations
+                </div>
+                <p className="text-2xl font-semibold text-foreground">{selectedCampaignDonationCount}</p>
+              </div>
+            </div>
+
+            {selectedCampaignDonors.length > 0 ? (
+              <div className="overflow-hidden rounded-lg border">
+                <div className="hidden grid-cols-[minmax(0,1.15fr)_minmax(220px,1fr)_130px_150px] gap-3 border-b bg-muted/30 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground md:grid">
+                  <span>Donor</span>
+                  <span>Email</span>
+                  <span>Donations</span>
+                  <span className="text-right">Amount</span>
+                </div>
+
+                <div className="max-h-[420px] divide-y overflow-y-auto">
+                  {selectedCampaignDonors.map((donor) => (
+                    <div
+                      key={donor.id}
+                      className="grid gap-2 px-3 py-3 md:grid-cols-[minmax(0,1.15fr)_minmax(220px,1fr)_130px_150px] md:items-center"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-foreground">{donor.name}</p>
+                        <p className="text-xs text-muted-foreground">Last donated {formatDateTime(donor.lastDonationAt)}</p>
+                      </div>
+
+                      <div className="min-w-0">
+                        {donor.email ? (
+                          <p className="flex min-w-0 items-center gap-2 truncate text-sm text-muted-foreground">
+                            <Mail className="h-4 w-4 shrink-0" />
+                            <span className="truncate">{donor.email}</span>
+                          </p>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">No email available</p>
+                        )}
+                      </div>
+
+                      <div>
+                        <Badge variant="secondary">
+                          {donor.donationCount} {donor.donationCount === 1 ? "donation" : "donations"}
+                        </Badge>
+                      </div>
+
+                      <p className="text-left font-semibold text-primary md:text-right">{formatCurrency(donor.totalDonated)}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-lg border py-12 text-center">
+                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                  <Users className="h-5 w-5 text-muted-foreground" />
+                </div>
+                <h3 className="mb-1 font-semibold text-foreground">No donors yet</h3>
+                <p className="text-sm text-muted-foreground">Completed donations for this campaign will appear here.</p>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>

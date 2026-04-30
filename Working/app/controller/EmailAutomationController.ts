@@ -24,6 +24,10 @@ interface StoredUserLike {
   email?: string
 }
 
+type DonationWithOptionalEmail = Donation & {
+  donorEmail?: string | null
+}
+
 interface BuildDashboardOptions {
   segment?: string | null
   campaignId?: string | null
@@ -865,13 +869,15 @@ export class EmailAutomationController {
     const donorsById = new Map<string, Donor>()
 
     for (const donation of relevantDonations) {
+      const donationWithEmail = donation as DonationWithOptionalEmail
       const donorUser = this.users.find((user) => user.id === donation.donorId)
+      const capturedDonationEmail = donationWithEmail.donorEmail?.trim() || undefined
       const donor =
         donorsById.get(donation.donorId) ??
         new Donor({
           donorId: donation.donorId,
           donorName: donorUser?.displayName || donation.donorName || "Unknown donor",
-          donorEmail: donorUser?.email,
+          donorEmail: donorUser?.email || capturedDonationEmail,
           donorAvatar: donorUser?.avatar,
         })
 
@@ -973,7 +979,7 @@ export class EmailAutomationController {
       throw new Error("There are no recipient email addresses available for this action.")
     }
 
-    const response = await fetch("/api/emails/send", {
+    const response = await fetch("/api/fund-raiser/email-send", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

@@ -356,7 +356,7 @@ async function buildResponsePayload(request: Request, fundRaiserId: string) {
     })),
   ]
 
-  const donations: Donation[] = rawDonations.map((donation) => {
+  const donations = rawDonations.map((donation) => {
     const campaign = campaignById.get(donation.campaignId)
     return {
       id: donation.id,
@@ -366,13 +366,14 @@ async function buildResponsePayload(request: Request, fundRaiserId: string) {
       category: campaign?.category || 'General',
       donorId: donation.donorId || `anonymous-${donation.id}`,
       donorName: donation.isAnonymous ? 'Anonymous' : donation.donorName || 'Unknown donor',
+      donorEmail: donation.donorEmail || undefined,
       amount: Number(donation.amount || 0),
       message: donation.message || undefined,
       isAnonymous: Boolean(donation.isAnonymous),
       status: donation.status,
       createdAt: toIsoString(donation.createdAt),
     }
-  })
+  }) as Donation[]
 
   const workflowRows = await getWorkflowRows()
   const { rules, templates, ruleIdToKey } = mergeWorkflowState(workflowRows)

@@ -36,7 +36,7 @@ export interface DonorDashboardViewModel {
   currentFilterEmailHref?: string
 }
 
-export class DonorDashboardController {
+export class FundRaiserDonorsController {
   constructor(
     private readonly campaigns: Campaign[],
     private readonly donations: Donation[],
@@ -198,7 +198,6 @@ export class DonorDashboardController {
   ): DonorActivityItem[] {
     return [...donations]
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .slice(0, 6)
       .map((donation) => ({
         donationId: donation.id,
         donorId: donation.donorId,
