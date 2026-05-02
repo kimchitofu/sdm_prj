@@ -90,6 +90,25 @@ export default async function ReceiptPage({
           </div>
         </div>
 
+        {/* Guest Donation Linking Code */}
+        {!donation.donorId && (
+        <div className="border rounded-xl p-5 bg-blue-50">
+          <p className="text-sm text-blue-700">
+            Guest Donation Linking Code
+          </p>
+
+          <p className="text-2xl font-bold text-blue-900 mt-1">
+            {donation.receiptCode || "No linking code found"}
+          </p>
+
+          <p className="text-sm text-blue-600 mt-2">
+            Use this code together with your email address
+            to link this donation to a registered donor account later.
+          </p>
+        </div>
+      )}
+
+
         {/* Donation Details */}
         <div className="border rounded-xl p-6 space-y-4 bg-gray-50">
 

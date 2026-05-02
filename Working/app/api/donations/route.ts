@@ -553,6 +553,11 @@ export async function POST(request: NextRequest) {
 
   const finalDonorEmail = session ? session.email : donorEmail || null
 
+  const receiptCode = `RCPT-${Math.random()
+  .toString(36)
+  .substring(2, 8)
+  .toUpperCase()}`
+
   const donation = await prisma.donation.create({
     data: {
       campaignId,
@@ -563,6 +568,7 @@ export async function POST(request: NextRequest) {
       isAnonymous: isAnonymous ?? false,
       message: message || null,
       status: "completed",
+      receiptCode,
     },
   })
 
@@ -660,6 +666,7 @@ export async function POST(request: NextRequest) {
     success: true,
     donationId: donation.id,
     confirmationNumber: `DON-${donation.id.slice(-8).toUpperCase()}`,
+    receiptCode,
     thankYouWorkflow,
     newDonationAlertWorkflow,
     milestoneWorkflow,

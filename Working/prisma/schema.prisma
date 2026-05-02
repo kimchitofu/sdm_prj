@@ -77,6 +77,7 @@ model Donation {
   status      String   @default("completed")
   donorName   String
   donorEmail  String?
+  receiptCode String?  @unique
   createdAt   DateTime @default(now())
 
   campaignId String
