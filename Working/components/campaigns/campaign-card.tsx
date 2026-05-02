@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Heart, Eye, Users, Clock, BadgeCheck } from 'lucide-react'
@@ -30,7 +31,21 @@ export function CampaignCard({
 }: CampaignCardProps) {
   const progress = calculateProgress(campaign.raisedAmount, campaign.targetAmount)
   const daysRemaining = getDaysRemaining(campaign.endDate)
-  const campaignUrl = `/campaign/${campaign.id}`
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+
+useEffect(() => {
+  const userProfile =
+    localStorage.getItem('userProfile') ||
+    localStorage.getItem('currentUser') ||
+    localStorage.getItem('user') ||
+    localStorage.getItem('authUser')
+
+  setIsLoggedIn(!!userProfile)
+}, [])
+
+const campaignUrl = isLoggedIn
+  ? `/campaign/${campaign.id}`
+  : `/campaign/${campaign.id}?guest=true`
 
   if (variant === 'horizontal') {
     return (
