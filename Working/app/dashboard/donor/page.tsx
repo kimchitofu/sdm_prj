@@ -21,15 +21,7 @@ import { DashboardLayout } from "@/components/layout/dashboard-sidebar"
 import { CampaignCard } from "@/components/campaigns/campaign-card"
 import { ReceiptDialog, buildReceiptNo, type ReceiptDonation } from "@/components/donor/receipt-dialog"
 import { campaigns, donations } from "@/lib/mock-data"
-import { useCurrentUser } from "@/hooks/use-current-user"
-
-const fallbackDonorUser = {
-  email: "donor@example.com",
-  displayName: "David Chen",
-  firstName: "David",
-  lastName: "Chen",
-  role: "donor",
-}
+import { useAuth } from "@/components/providers/session-provider"
 
 // Mock: recent giving pulled from donations list
 const recentGiving: ReceiptDonation[] = donations.slice(0, 4).map(d => ({
@@ -71,21 +63,21 @@ const categoryColours: Record<string, string> = {
 const colourFor = (cat: string) => categoryColours[cat] ?? "bg-primary"
 
 export default function DonorHomePage() {
-  const currentUser = useCurrentUser(fallbackDonorUser)
+  const { user: currentUser } = useAuth()
   const [receiptDonation, setReceiptDonation] = useState<ReceiptDonation | null>(null)
 
   const fmt = (n: number) =>
     new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0 }).format(n)
 
-  const firstName = currentUser.displayName?.split(" ")[0] ?? "there"
+  const firstName = currentUser?.firstName ?? "there"
+  const displayName = currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : undefined
 
   return (
     <DashboardLayout
       role="donor"
       user={{
-        name: currentUser.displayName,
-        email: currentUser.email,
-        avatar: currentUser.avatar,
+        name: displayName ?? "",
+        email: currentUser?.email ?? "",
         role: "Donor",
       }}
     >
@@ -255,7 +247,7 @@ export default function DonorHomePage() {
       {receiptDonation && (
         <ReceiptDialog
           donation={receiptDonation}
-          donorName={currentUser.displayName}
+          donorName={displayName ?? ""}
           onClose={() => setReceiptDonation(null)}
         />
       )}
