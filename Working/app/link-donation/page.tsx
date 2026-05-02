@@ -2,10 +2,19 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
 export default function LinkDonationPage() {
-  const [donorEmail, setDonorEmail] = useState("");
-  const [receiptCode, setReceiptCode] = useState("");
+  const searchParams = useSearchParams();
+
+  const [donorEmail, setDonorEmail] = useState(
+    searchParams.get("email") || ""
+  );
+
+  const [receiptCode, setReceiptCode] = useState(
+    searchParams.get("code") || ""
+  );
+
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);

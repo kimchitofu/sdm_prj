@@ -259,7 +259,7 @@ export default async function ReceiptPage({
 
           {!donation.donorId && (
             <Link
-              href={`/auth/register?donationId=${donation.id}`}
+              href={`/auth/register?role=donor&donationId=${donation.id}`}
               className="flex-1 text-center bg-green-600 text-white px-4 py-3 rounded-xl hover:bg-green-700"
             >
               Create Account
