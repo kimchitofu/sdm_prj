@@ -113,25 +113,25 @@ export default function DoneeDashboardPage() {
    * without breaking the existing API route.
    */
   const totalReceived =
-    data?.stats.totalReceived ?? data?.stats.totalDonated ?? 0
+    data?.stats?.totalReceived ?? data?.stats?.totalDonated ?? 0
 
   const linkedActivities =
-    data?.stats.linkedActivities ?? data?.stats.campaignsSupported ?? 0
+    data?.stats?.linkedActivities ?? data?.stats?.campaignsSupported ?? 0
 
   const thisMonthReceived =
-    data?.stats.thisMonthReceived ?? data?.stats.thisMonth ?? 0
+    data?.stats?.thisMonthReceived ?? data?.stats?.thisMonth ?? 0
 
   const supporterCount =
-    data?.stats.supporterCount ??
+    data?.stats?.supporterCount ??
     data?.recentActivity?.filter((activity) => activity.type === "donation")
       .length ??
     0
 
   const donorMessageCount =
-    data?.stats.donorMessages ?? data?.donorMessages?.length ?? 0
+    data?.stats?.donorMessages ?? data?.donorMessages?.length ?? 0
 
   const milestoneAlertCount =
-    data?.stats.milestoneAlerts ?? data?.milestoneAlerts?.length ?? 0
+    data?.stats?.milestoneAlerts ?? data?.milestoneAlerts?.length ?? 0
 
   return (
     <DashboardLayout role="donee" user={sidebarUser}>
