@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getSession } from "@/lib/auth"
-import { EmailTemplate } from "@/app/entity/EmailTemplate"
+import { EmailAutomationTriggerController, type WorkflowResult } from "@/app/controller/EmailAutomationTriggerController"
+
+const emailAutomationTriggerController = new EmailAutomationTriggerController()
 
 async function verifyOwnership(campaignId: string, userId: string) {
   return prisma.campaign.findFirst({
@@ -37,144 +39,6 @@ async function loadRecentUpdates(campaignId: string) {
     ...update,
     createdAt: update.createdAt.toISOString(),
   }))
-}
-
-function mapRuleKey(triggerType: string): "manual_update" | null {
-  if (triggerType === "campaign_update" || triggerType === "manual_update") {
-    return "manual_update"
-  }
-
-  return null
-}
-
-async function triggerCampaignUpdateWorkflow(input: {
-  request: NextRequest
-  campaignId: string
-  campaignTitle: string
-  targetAmount: number
-  raisedAmount: number
-  donorCount: number
-  fundRaiserName: string
-  updateTitle: string
-  updateContent: string
-}) {
-  const workflowRule = await prisma.emailAutomationRule.findFirst({
-    where: {
-      triggerType: {
-        in: ["campaign_update", "manual_update"],
-      },
-      isActive: true,
-    },
-    select: {
-      id: true,
-      name: true,
-      triggerType: true,
-      subject: true,
-      body: true,
-      isActive: true,
-    },
-  })
-
-  if (!workflowRule) {
-    return {
-      attempted: false,
-      deliveredCount: 0,
-      reason: "Campaign update workflow is not enabled.",
-    }
-  }
-
-  const recipients = Array.from(
-    new Set(
-      (
-        await prisma.donation.findMany({
-          where: {
-            campaignId: input.campaignId,
-            status: "completed",
-            donorEmail: {
-              not: null,
-            },
-          },
-          select: {
-            donorEmail: true,
-          },
-        })
-      )
-        .map((donation) => donation.donorEmail?.trim())
-        .filter((email): email is string => Boolean(email))
-    )
-  )
-
-  if (recipients.length === 0) {
-    return {
-      attempted: false,
-      deliveredCount: 0,
-      reason: "No donor email recipients are available for this campaign yet.",
-    }
-  }
-
-  const template = new EmailTemplate({
-    id: workflowRule.id,
-    ruleKey: mapRuleKey(workflowRule.triggerType) || "manual_update",
-    label: workflowRule.name,
-    description: "Campaign update workflow template.",
-    subjectTemplate: workflowRule.subject,
-    bodyTemplate: workflowRule.body,
-    updatedAt: undefined,
-  })
-
-  const replacements = {
-    campaignTitle: input.campaignTitle,
-    targetAmount: Number(input.targetAmount || 0).toLocaleString(),
-    raisedAmount: Number(input.raisedAmount || 0).toLocaleString(),
-    donorCount: Number(input.donorCount || 0).toLocaleString(),
-    fundRaiserName: input.fundRaiserName,
-    recipientLabel: "supporter",
-    milestonePercent: undefined,
-    campaignUpdateTitle: input.updateTitle,
-    campaignUpdateContent: input.updateContent,
-    campaignUpdateDate: new Date().toLocaleString(),
-    updateTitle: input.updateTitle,
-    updateContent: input.updateContent,
-  }
-
-  const subject = template.renderSubject(replacements)
-  const body = template.renderBody(replacements)
-
-  const sendResponse = await fetch(`${input.request.nextUrl.origin}/api/fund-raiser/email-send`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      to: recipients,
-      subject,
-      text: body,
-      campaignId: input.campaignId,
-      campaignTitle: input.campaignTitle,
-      triggerKey: "manual_update",
-      templateId: workflowRule.id,
-    }),
-    cache: "no-store",
-  })
-
-  const sendPayload = await sendResponse.json().catch(() => null)
-
-  if (!sendResponse.ok) {
-    throw new Error(
-      (sendPayload && typeof sendPayload.error === "string" && sendPayload.error) ||
-        "Campaign update workflow email failed to send."
-    )
-  }
-
-  return {
-    attempted: true,
-    deliveredCount:
-      sendPayload && typeof sendPayload.deliveredCount === "number"
-        ? sendPayload.deliveredCount
-        : recipients.length,
-    messageId:
-      sendPayload && typeof sendPayload.messageId === "string" ? sendPayload.messageId : undefined,
-  }
 }
 
 export async function GET(request: NextRequest) {
@@ -228,12 +92,10 @@ export async function POST(request: NextRequest) {
 
   const updates = await loadRecentUpdates(campaignId)
 
-  let workflowResult:
-    | { attempted: false; deliveredCount: 0; reason: string }
-    | { attempted: true; deliveredCount: number; messageId?: string }
+  let workflowResult: WorkflowResult
 
   try {
-    workflowResult = await triggerCampaignUpdateWorkflow({
+    workflowResult = await emailAutomationTriggerController.triggerCampaignUpdateWorkflow({
       request,
       campaignId,
       campaignTitle: ownedCampaign.title,
