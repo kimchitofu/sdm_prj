@@ -15,11 +15,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 
-type UserRole = 'donee' | 'fund_raiser'
+type UserRole = 'donor' | 'fund_raiser'
 
 const roleOptions = [
   {
-    id: 'donee' as UserRole,
+    id: 'donor' as UserRole,
     title: 'Donor',
     subtitle: 'Support causes you care about',
     icon: Heart,
@@ -47,6 +47,7 @@ const roleOptions = [
 function RegisterForm() {
   const searchParams = useSearchParams()
   const defaultRole = searchParams.get('role') as UserRole | null
+  const donationId = searchParams.get('donationId')
 
   const [step, setStep] = useState<'role' | 'details'>(defaultRole ? 'details' : 'role')
   const [selectedRole, setSelectedRole] = useState<UserRole | null>(defaultRole)
@@ -113,7 +114,8 @@ function RegisterForm() {
           password: formData.password,
           firstName: formData.firstName,
           lastName: formData.lastName,
-          role: selectedRole ?? 'donee',
+          role: selectedRole ?? 'donor',
+          donationId,
         }),
       })
 
@@ -128,7 +130,19 @@ function RegisterForm() {
       toast.success('Account created successfully!', {
         description: "Welcome to FundBridge. Let's get started!",
       })
-      window.location.href = getRedirectForRole(data.user.role)
+      const redirect = searchParams.get("redirect")
+
+        if (redirect) {
+          const email = searchParams.get("email") || ""
+          const code = searchParams.get("code") || ""
+          window.location.href = `${redirect}?email=${email}&code=${code}`
+        } else {
+          if (donationId) {
+            window.location.href = "/dashboard/donor/donations"
+          } else {
+            window.location.href = getRedirectForRole(data.user.role)
+          }
+        }
     } catch {
       toast.error('An error occurred', { description: 'Please try again.' })
     } finally {
@@ -255,7 +269,7 @@ function RegisterForm() {
                 <CardDescription>
                   Sign up as a{' '}
                   <span className="font-medium text-foreground">
-                    {selectedRole === 'fund_raiser' ? 'Fund Raiser' : 'Donee'}
+                    {selectedRole === 'fund_raiser' ? 'Fund Raiser' : 'Donor'}
                   </span>
                 </CardDescription>
               </CardHeader>

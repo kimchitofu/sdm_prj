@@ -140,22 +140,22 @@ export function Footer() {
         <div className="mt-8 flex flex-wrap gap-6 border-t pt-8 text-sm text-muted-foreground">
           <div className="flex items-center gap-2">
             <Mail className="h-4 w-4" />
-            <span>support@fundbridge.com</span>
+            <span>fundbridge.team@gmail.com</span>
           </div>
           <div className="flex items-center gap-2">
             <Phone className="h-4 w-4" />
-            <span>1-800-FUNDBRIDGE</span>
+            <span>65 6468 8866</span>
           </div>
           <div className="flex items-center gap-2">
             <MapPin className="h-4 w-4" />
-            <span>San Francisco, CA</span>
+            <span>Singapore</span>
           </div>
         </div>
 
         {/* Copyright */}
         <div className="mt-8 border-t pt-8 text-center text-sm text-muted-foreground">
-          <p>&copy; {new Date().getFullYear()} FundBridge. All rights reserved.</p>
-          <p className="mt-1">Made with care for communities everywhere.</p>
+          <p>&copy; {new Date().getFullYear()} FundBridge. Developed for Software Methods Project.</p>
+          <p className="mt-1">Built for educational and demonstration purposes.</p>
         </div>
       </div>
     </footer>

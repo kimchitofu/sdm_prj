@@ -22,6 +22,10 @@ import {
   Flag,
   Download,
   Megaphone,
+  HandHeart,
+  DollarSign,
+  MessageSquare,
+  Award,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -52,9 +56,11 @@ interface DashboardSidebarProps {
 
 const doneeNavItems: NavItem[] = [
   { href: "/dashboard/donee", label: "Dashboard", icon: <LayoutDashboard className="h-5 w-5" /> },
-  { href: "/browse", label: "Browse Campaigns", icon: <Search className="h-5 w-5" /> },
-  { href: "/dashboard/donee/favourites", label: "Favourites", icon: <Heart className="h-5 w-5" /> },
-  { href: "/dashboard/donee/donations", label: "Donation History", icon: <History className="h-5 w-5" /> },
+  { href: "/dashboard/donee/activities", label: "Fundraising Activities", icon: <HandHeart className="h-5 w-5" /> },
+  { href: "/dashboard/donee/donations", label: "Received Donations", icon: <DollarSign className="h-5 w-5" /> },
+  { href: "/dashboard/donee/messages", label: "Donor Messages", icon: <MessageSquare className="h-5 w-5" /> },
+  { href: "/dashboard/donee/reports", label: "Reports", icon: <FileText className="h-5 w-5" /> },
+  { href: "/dashboard/donee/milestones", label: "Milestones", icon: <Award className="h-5 w-5" /> },
 ]
 
 const donorNavItems: NavItem[] = [
@@ -166,7 +172,12 @@ function isNavItemActive(pathname: string, href: string) {
   return pathname.startsWith(`${href}/`)
 }
 
-function SidebarContent({ role, user, pathname, onNavigate }: {
+function SidebarContent({
+  role,
+  user,
+  pathname,
+  onNavigate,
+}: {
   role: UserRole
   user?: DashboardSidebarProps["user"]
   pathname: string
@@ -243,12 +254,13 @@ function SidebarContent({ role, user, pathname, onNavigate }: {
           <Settings className="h-5 w-5" />
           <span>Settings</span>
         </Link>
+
         <button
           onClick={async () => {
             onNavigate?.()
-            await fetch('/api/auth/logout', { method: 'POST' })
-            localStorage.removeItem('currentUser')
-            window.location.href = '/'
+            await fetch("/api/auth/logout", { method: "POST" })
+            localStorage.removeItem("currentUser")
+            window.location.href = "/"
           }}
           className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
@@ -264,11 +276,12 @@ export function DashboardSidebar({ role, user }: DashboardSidebarProps) {
   const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = useState(false)
   const { user: sessionUser } = useAuth()
+
   const resolvedUser = {
-    name: sessionUser ? `${sessionUser.firstName} ${sessionUser.lastName}` : (user?.name ?? ''),
-    email: sessionUser?.email ?? user?.email ?? '',
+    name: sessionUser ? `${sessionUser.firstName} ${sessionUser.lastName}` : (user?.name ?? ""),
+    email: sessionUser?.email ?? user?.email ?? "",
     avatar: user?.avatar,
-    role: user?.role ?? '',
+    role: user?.role ?? "",
   }
 
   return (
@@ -316,9 +329,7 @@ export function DashboardLayout({
     <div className="min-h-screen bg-background">
       <DashboardSidebar role={role} user={user} />
       <main className="lg:pl-64">
-        <div className="p-4 md:p-6 lg:p-8">
-          {children}
-        </div>
+        <div className="p-4 md:p-6 lg:p-8">{children}</div>
       </main>
     </div>
   )

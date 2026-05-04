@@ -5,7 +5,7 @@ import bcrypt from 'bcryptjs'
 
 export async function POST(request: Request) {
   try {
-    const { email, password, firstName, lastName, role } = await request.json()
+    const { email, password, firstName, lastName, role, donationId } = await request.json()
 
     if (!email || !password || !firstName || !lastName) {
       return NextResponse.json({ error: 'All fields are required' }, { status: 400 })
@@ -26,6 +26,19 @@ export async function POST(request: Request) {
         role: role || 'donor',
       },
     })
+
+    if (donationId) {
+      await prisma.donation.updateMany({
+        where: {
+          id: donationId,
+          donorId: null,
+          donorEmail: email,
+        },
+        data: {
+          donorId: user.id,
+        },
+      })
+    }
 
     const token = signToken({
       id: user.id,
