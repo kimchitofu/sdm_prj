@@ -14,6 +14,7 @@ export default async function ReceiptPage({
     where: { id },
     include: {
       campaign: true,
+    
     },
   });
 
