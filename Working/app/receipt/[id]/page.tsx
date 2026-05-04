@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import QRCode from "qrcode";
+import ReceiptQR from "@/components/ReceiptQR";
 
 export default async function ReceiptPage({
   params,
@@ -234,13 +235,7 @@ export default async function ReceiptPage({
               Scan this QR code to verify this donation receipt.
             </p>
 
-            <div className="flex justify-center">
-              <img
-                src={qrCodeDataUrl}
-                alt="QR Verification"
-                className="w-28 h-28"
-              />
-            </div>
+            <ReceiptQR qrCodeDataUrl={qrCodeDataUrl} />
 
             <p className="text-sm break-all text-gray-500">
               {verificationUrl}

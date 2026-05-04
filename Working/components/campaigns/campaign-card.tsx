@@ -129,15 +129,17 @@ const campaignUrl = isLoggedIn
 
   return (
     <Card className="group overflow-hidden transition-all hover:shadow-lg">
-      <Link href={campaignUrl} className="relative block aspect-[16/10]">
-        <Image
+      <Link href={campaignUrl} className="relative block aspect-[16/10] overflow-hidden">
+        <img
           src={campaign.coverImage}
           alt={campaign.title}
-          fill
-          className="object-cover transition-transform group-hover:scale-105"
+          onError={(e) => {
+            e.currentTarget.src = "/default-campaign.jpg"
+          }}
+          className="h-full w-full object-cover transition-transform group-hover:scale-105"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
 
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
         <div className="absolute left-3 right-3 top-3 flex items-start justify-between">
           <Badge variant="secondary" className="bg-white/90 text-foreground">
             {campaign.category}

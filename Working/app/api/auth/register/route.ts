@@ -32,6 +32,7 @@ export async function POST(request: Request) {
         where: {
           id: donationId,
           donorId: null,
+          donorEmail: email,
         },
         data: {
           donorId: user.id,

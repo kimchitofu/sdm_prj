@@ -23,8 +23,7 @@ export default async function CampaignDetailsPage({
     include: {
       updates: { orderBy: { createdAt: "desc" } },
       donations: {
-        orderBy: { createdAt: "desc" },
-        take: 5,
+      orderBy: { createdAt: "desc" },
       },
       organiser: true,
     },
@@ -258,7 +257,7 @@ export default async function CampaignDetailsPage({
             No donations have been made yet.
           </p>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3 max-h-[320px] overflow-y-auto pr-2">
             {campaign.donations.map((donation) => (
               <div
                 key={donation.id}
@@ -280,14 +279,12 @@ export default async function CampaignDetailsPage({
                 )}
 
                 <p className="text-sm text-gray-500 mt-2">
-                  {donation.createdAt.toLocaleDateString(
-                    "en-SG",
-                    {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    }
-                  )}
+                  {new Date(donation.createdAt).toLocaleString("en-SG", {
+                    day: "numeric",
+                    month: "short",
+                    hour: "numeric",
+                    minute: "numeric",
+                  })}
                 </p>
               </div>
             ))}
