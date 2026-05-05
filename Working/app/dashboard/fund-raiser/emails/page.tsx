@@ -110,8 +110,66 @@ function formatDateTime(value?: string) {
   })
 }
 
+function normaliseEmail(value?: string | null) {
+  return value?.trim().toLowerCase() || ""
+}
 
-function groupEmailActivity(logs: EmailLogSummary[]): GroupedEmailActivity[] {
+function isEmailLike(value?: string | null) {
+  return Boolean(value && value.includes("@"))
+}
+
+function getUserDisplayName(user: User) {
+  return user.displayName || `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email
+}
+
+function buildRecipientNameLookup(donations: Donation[], users: User[]) {
+  const lookup = new Map<string, string>()
+
+  users.forEach((user) => {
+    const email = normaliseEmail(user.email)
+    const name = getUserDisplayName(user).trim()
+
+    if (email && name && !isEmailLike(name)) {
+      lookup.set(email, name)
+    }
+  })
+
+  donations.forEach((donation) => {
+    const donorEmail = normaliseEmail(donation.donorEmail)
+    const donorName = donation.donorName?.trim()
+
+    if (donorEmail && donorName && !isEmailLike(donorName)) {
+      lookup.set(donorEmail, donorName)
+    }
+  })
+
+  return lookup
+}
+
+function resolveRecipientName(
+  recipientName: string | undefined,
+  recipientEmail: string | undefined,
+  recipientNameLookup: Map<string, string>
+) {
+  const trimmedName = recipientName?.trim()
+  const trimmedEmail = recipientEmail?.trim()
+  const emailKey = normaliseEmail(trimmedEmail)
+
+  if (trimmedName && !isEmailLike(trimmedName) && trimmedName !== trimmedEmail) {
+    return trimmedName
+  }
+
+  if (emailKey && recipientNameLookup.has(emailKey)) {
+    return recipientNameLookup.get(emailKey) || trimmedEmail || "Unnamed recipient"
+  }
+
+  return trimmedEmail || trimmedName || "Unnamed recipient"
+}
+
+function groupEmailActivity(
+  logs: EmailLogSummary[],
+  recipientNameLookup: Map<string, string>
+): GroupedEmailActivity[] {
   const grouped = new Map<string, GroupedEmailActivity>()
 
   for (const log of logs) {
@@ -128,7 +186,7 @@ function groupEmailActivity(logs: EmailLogSummary[]): GroupedEmailActivity[] {
     if (existing) {
       existing.recipientCount += 1
       existing.recipients.push({
-        name: log.recipientName,
+        name: resolveRecipientName(log.recipientName, log.recipientEmail, recipientNameLookup),
         email: log.recipientEmail,
       })
       continue
@@ -147,7 +205,7 @@ function groupEmailActivity(logs: EmailLogSummary[]): GroupedEmailActivity[] {
       recipientCount: 1,
       recipients: [
         {
-          name: log.recipientName,
+          name: resolveRecipientName(log.recipientName, log.recipientEmail, recipientNameLookup),
           email: log.recipientEmail,
         },
       ],
@@ -754,7 +812,15 @@ export default function FundRaiserEmailsPage() {
   }
 
 
-  const groupedActivityLogs = useMemo(() => groupEmailActivity(dashboard.logs), [dashboard.logs])
+  const recipientNameLookup = useMemo(
+    () => buildRecipientNameLookup(donationsData, directoryUsers),
+    [donationsData, directoryUsers]
+  )
+
+  const groupedActivityLogs = useMemo(
+    () => groupEmailActivity(dashboard.logs, recipientNameLookup),
+    [dashboard.logs, recipientNameLookup]
+  )
 
   const activityCampaignOptions = useMemo(
     () =>
@@ -1452,10 +1518,10 @@ export default function FundRaiserEmailsPage() {
                                   <div className="min-w-0">
                                     <p className="truncate text-sm font-semibold leading-tight text-foreground">{firstRecipientName}</p>
                                     <p className="truncate text-xs leading-snug text-muted-foreground">
-                                      {firstRecipientEmail ||
-                                        (additionalRecipientCount > 0
-                                          ? `Includes ${additionalRecipientCount} more recipient${additionalRecipientCount === 1 ? "" : "s"}`
-                                          : "Single recipient")}
+                                      {firstRecipientEmail || "No email recorded"}
+                                      {additionalRecipientCount > 0
+                                        ? ` • ${additionalRecipientCount} more recipient${additionalRecipientCount === 1 ? "" : "s"}`
+                                        : ""}
                                     </p>
                                   </div>
                                 </div>
