@@ -8,10 +8,11 @@ import { useAuth } from "@/components/providers/session-provider"
 export function HeroActions() {
   const { user } = useAuth()
   const isDonor = user?.role === "donor" || user?.role === "donee"
+  const isAdmin = user?.role === "admin" || user?.role === "campaign_admin"
 
   return (
     <div className="flex flex-col justify-center gap-4 sm:flex-row">
-      {!isDonor && (
+      {!isDonor && !isAdmin && (
         <Button size="lg" asChild>
           <Link href="/auth/register">
             Start Fundraising
