@@ -35,7 +35,7 @@ const RULE_LABELS: Record<EmailTriggerKey, string> = {
   thank_you: "Thank-you email",
   milestone: "Milestone email",
   new_donation_alert: "New donation alert",
-  manual_update: "Manual campaign update",
+  manual_update: "Campaign update email",
 }
 
 export class EmailLog {

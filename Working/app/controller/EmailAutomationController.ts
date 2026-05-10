@@ -302,6 +302,7 @@ export class EmailAutomationController {
     }
   }
 
+  // note - likely not needed anymore since i removed the send automatic workflow now
   async deliverAutomaticWorkflowEmail(input: CreateAutomaticWorkflowEmailLogInput): Promise<EmailDeliveryResult> {
     const triggerSummary = this.buildWorkflowTriggerSummary(
       input.ruleKey,
