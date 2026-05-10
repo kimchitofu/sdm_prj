@@ -86,17 +86,16 @@ export default function SignInPage() {
   }
 
   const handleDemoLogin = (role: string) => {
-    const demoAccounts: Record<string, { email: string; password: string }> = {
-      donee: { email: 'donee@example.com', password: 'Demo1234' },
-      fund_raiser: { email: 'fundraiser@example.com', password: 'Demo1234' },
-      admin: { email: 'admin@fundbridge.com', password: 'Admin@1234' },
-      donor: { email: 'donor@example.com', password: 'Demo1234' },
-      campaign_admin: { email: 'campaignadmin@fundbridge.com', password: 'Admin@1234' },
+    const demoAccounts: Record<string, { email: string }> = {
+      donee: { email: 'donee@example.com' },
+      fund_raiser: { email: 'fundraiser@example.com' },
+      admin: { email: 'admin@fundbridge.com' },
+      donor: { email: 'donor@example.com' },
     }
 
     const account = demoAccounts[role]
     if (account) {
-      setFormData({ ...formData, email: account.email, password: account.password })
+      setFormData({ ...formData, email: account.email, password: role === 'admin' ? 'Admin@1234' : 'Demo1234' })
       toast.success(`Demo: ${role.replace('_', ' ')} account`, {
         description: 'Click Sign In to continue with demo account.',
       })
@@ -274,15 +273,6 @@ export default function SignInPage() {
                     onClick={() => handleDemoLogin('donor')}
                   >
                     Donor Demo
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="col-span-2"
-                    onClick={() => handleDemoLogin('campaign_admin')}
-                  >
-                    Campaign Admin Demo
                   </Button>
                 </div>
               </div>

@@ -15,7 +15,6 @@ import {
   ShieldAlert,
   Lock,
   Unlock,
-  RotateCcw,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -132,7 +131,6 @@ export default function CampaignReviewPage() {
       actionType === 'approve' ? 'approved' :
       actionType === 'reject' ? 'rejected' :
       actionType === 'under_review' ? 'under_review' :
-      actionType === 'revert_rejection' ? 'under_review' :
       'on_hold'
 
     await fetch('/api/admin/campaigns', {
@@ -231,13 +229,6 @@ export default function CampaignReviewPage() {
           description: 'This will temporarily suspend the campaign review pending further investigation (SA-UC08).',
           buttonLabel: 'Place On Hold',
           danger: true,
-        }
-      case 'revert_rejection':
-        return {
-          title: 'Revert Rejection?',
-          description: 'This campaign will be moved back to Under Review so it can be re-evaluated. The organiser will not be automatically notified.',
-          buttonLabel: 'Revert to Under Review',
-          danger: false,
         }
       default:
         return { title: '', description: '', buttonLabel: 'Confirm', danger: false }
@@ -361,7 +352,7 @@ export default function CampaignReviewPage() {
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
-                        {(review.status === 'pending_review' || review.status === 'under_review' || review.status === 'on_hold') && (
+                        {(review.status === 'pending_review' || review.status === 'under_review') && (
                           <>
                             <Button size="sm" variant="ghost" className="text-green-600" onClick={() => handleAction(review, 'approve')}>
                               <CheckCircle className="h-4 w-4" />
@@ -373,17 +364,6 @@ export default function CampaignReviewPage() {
                               <XCircle className="h-4 w-4" />
                             </Button>
                           </>
-                        )}
-                        {(review.status as string) === 'rejected' && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="text-amber-500"
-                            title="Revert rejection"
-                            onClick={() => handleAction(review, 'revert_rejection')}
-                          >
-                            <RotateCcw className="h-4 w-4" />
-                          </Button>
                         )}
                         {(review.status as string) === 'active' && (
                           <Button
@@ -516,23 +496,7 @@ export default function CampaignReviewPage() {
                 </>
               )}
 
-              {(selectedReview.status as string) === 'rejected' && (
-                <>
-                  <Separator />
-                  <div className="flex gap-2 flex-wrap">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="text-amber-600 border-amber-300"
-                      onClick={() => { setShowDetail(false); handleAction(selectedReview, 'revert_rejection') }}
-                    >
-                      <RotateCcw className="h-4 w-4 mr-2" />
-                      Revert Rejection
-                    </Button>
-                  </div>
-                </>
-              )}
-              {(selectedReview.status === 'pending_review' || selectedReview.status === 'under_review' || selectedReview.status === 'on_hold') && (
+              {(selectedReview.status === 'pending_review' || selectedReview.status === 'under_review') && (
                 <>
                   <Separator />
                   <div className="flex gap-2 flex-wrap">
