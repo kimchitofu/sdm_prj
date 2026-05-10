@@ -2,16 +2,19 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
 
+export const dynamic = 'force-dynamic'
+
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  context: { params: { id: string } }
 ) {
   const session = await getSession()
+
   if (!session || session.role !== 'admin') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { id } = await params
+  const { id } = context.params
   const body = await req.json()
 
   const announcement = await prisma.announcement.update({
@@ -21,7 +24,9 @@ export async function PATCH(
       ...(body.message !== undefined && { message: body.message }),
       ...(body.type !== undefined && { type: body.type }),
       ...(body.status !== undefined && { status: body.status }),
-      ...(body.expiresAt !== undefined && { expiresAt: body.expiresAt ? new Date(body.expiresAt) : null }),
+      ...(body.expiresAt !== undefined && {
+        expiresAt: body.expiresAt ? new Date(body.expiresAt) : null,
+      }),
     },
   })
 
@@ -30,14 +35,19 @@ export async function PATCH(
 
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  context: { params: { id: string } }
 ) {
   const session = await getSession()
+
   if (!session || session.role !== 'admin') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { id } = await params
-  await prisma.announcement.delete({ where: { id } })
+  const { id } = context.params
+
+  await prisma.announcement.delete({
+    where: { id },
+  })
+
   return NextResponse.json({ success: true })
 }
