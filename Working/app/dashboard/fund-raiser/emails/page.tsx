@@ -613,42 +613,6 @@ export default function FundRaiserEmailsPage() {
     }
   }
 
-  const handleAutomaticDelivery = async () => {
-    if (!selectedWorkflow?.template) return
-
-    try {
-      setWorkflowActionState({ type: "idle", message: "" })
-
-      const result = await emailAutomationController.deliverAutomaticWorkflowEmail({
-        ruleKey: selectedWorkflow.rule.key,
-        templateSummary: selectedWorkflow.template,
-        fundRaiserUser: resolvedFundRaiserUser,
-        campaign: selectedCampaign,
-        deliveryMode: "send",
-        logs: activityLogs,
-      })
-
-      setActivityLogs((current) => [result.log, ...current])
-      setWorkflowActionState({
-        type: "success",
-        message: `Workflow email sent successfully to ${result.deliveredCount} recipient${result.deliveredCount === 1 ? "" : "s"}.`,
-      })
-      toast({
-        title: "Workflow sent",
-        description: `Email sent to ${result.deliveredCount} recipient${result.deliveredCount === 1 ? "" : "s"}.`,
-      })
-    } catch (error) {
-      setWorkflowActionState({
-        type: "error",
-        message: error instanceof Error ? error.message : "Unable to send workflow.",
-      })
-      toast({
-        title: "Unable to send workflow",
-        description: error instanceof Error ? error.message : "Please review the selected campaign and try again.",
-        variant: "destructive",
-      })
-    }
-  }
 
   const handleGenerateDraft = async (regenerate = false) => {
     if (!selectedCampaign || !selectedSegment) {
@@ -910,8 +874,7 @@ export default function FundRaiserEmailsPage() {
     setActivitySortOrder(value as "newest" | "oldest")
   }
 
-  const automaticActionsDisabled =
-    isLoadingEmailData || !selectedWorkflow?.rule.isEnabled || !selectedTrigger?.isReadyNow || !selectedWorkflow?.template
+ 
   const hasTemplateChanges =
     Boolean(selectedWorkflow?.template) &&
     (templateSubject !== (selectedWorkflow?.template?.subjectTemplate || "") ||
@@ -1143,19 +1106,12 @@ export default function FundRaiserEmailsPage() {
           <Mail className="mr-2 h-4 w-4" />
           Quick test
         </Button>
-        <Button type="button" onClick={handleAutomaticDelivery} disabled={automaticActionsDisabled} className="cursor-pointer disabled:cursor-not-allowed">
-          <Send className="mr-2 h-4 w-4" />
-          Send workflow now
-        </Button>
+
       </div>
 
-      {automaticActionsDisabled ? (
-        <p className="text-sm text-muted-foreground">
-          {!selectedWorkflow?.rule.isEnabled
-            ? "Turn this workflow on before sending it."
-            : selectedTrigger?.statusReason || "This workflow is waiting for its trigger condition."}
-        </p>
-      ) : null}
+      <p className="text-sm text-muted-foreground">
+        Automatic workflow emails are sent when their trigger event occurs, such as a campaign update, donation, or milestone.
+      </p>
     </CardContent>
   </Card>
 </div>

@@ -1,5 +1,5 @@
 /**
- * Creates/updates a fund raiser test account for Kim.
+ * Creates/updates a fund raiser test account.
  *
  * Run with:
  *   node scripts/create_kim_fundraiser_account.js
