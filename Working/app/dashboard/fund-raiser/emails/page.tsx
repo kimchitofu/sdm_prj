@@ -1018,21 +1018,6 @@ export default function FundRaiserEmailsPage() {
         ) : null}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-lg border p-3">
-          <p className="text-sm text-muted-foreground">Audience</p>
-          <p className="text-base font-semibold">{automaticAudience?.label || "No workflow selected"}</p>
-        </div>
-        <div className="rounded-lg border p-3">
-          <p className="text-sm text-muted-foreground">Recipients</p>
-          <p className="text-2xl font-semibold">{automaticAudience?.recipientCount ?? 0}</p>
-        </div>
-        <div className="rounded-lg border p-3">
-          <p className="text-sm text-muted-foreground">Emails captured</p>
-          <p className="text-2xl font-semibold">{automaticAudience?.recipientsWithEmailCount ?? 0}</p>
-        </div>
-      </div>
-
       {isFundRaiserAlertWorkflow ? (
         <div className="rounded-lg border bg-muted/30 p-3 text-sm text-muted-foreground">
           New donation alerts are sent automatically to the logged-in fund raiser when a completed donation is received.
